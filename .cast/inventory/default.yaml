@@ -1,0 +1,15 @@
+defaults:
+  default: 
+
+  docker:
+    password: 
+
+
+hosts:
+  name:
+    host: "name or ip"
+    user: "username"
+    port: 22
+    identity_file: "~/.ssh/id_rsa"
+    password: ${PASSWORD_ENV_VAR}
+    defaults: docker 

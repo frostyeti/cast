@@ -1,0 +1,31 @@
+imports:
+  - from: "vendor/azure"
+    
+
+id: "@org/project-id"
+name: "cast"
+description: "A description of the cast project."
+version: "0.1.0"
+
+env:
+  files:
+
+  vars:
+
+  paths:
+    - windows: "C:/path/to/windows/bin"
+    - 
+
+tasks:
+  long:
+    uses: bash
+    run: |
+      echo "This is a long task."
+    cwd: "./"
+    env:
+      EXAMPLE_VAR: "example_value"
+    with:
+      timeout: 300
+    args: ["--verbose"]
+    hooks: true 
+    

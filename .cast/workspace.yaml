@@ -1,0 +1,26 @@
+
+projects:
+  include: ["**"]
+  exclude: ["**/node_modules/**", "**/vendor/**", "**/.git/**", "**/.frostyeti/**"]
+  aliases:
+    cast: "./"
+
+env:
+  files:
+    - "./.env"
+  vars:
+    GLOBAL_VAR: "global_value"
+  paths:
+    - linux: "/usr/local/bin"
+    - macos: "/usr/local/bin"
+    - windows: "C:/path/to/bin"
+
+defaults:
+  context: "development"
+  shell: "bash"
+  cache:
+    enabled: true
+
+modules:
+  - "@github.com/frostyeti/azure@5.0.0"
+  - "vendor/azure"
