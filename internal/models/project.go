@@ -28,7 +28,7 @@ type RunTaskParams struct {
 	Context       context.Context
 }
 
-func (p *Project) FromCastConfig(config *schemas.CastConfig) {
+func (p *Project) FromCastConfig(config *schemas.Castfile) {
 	if p == nil {
 		p = &Project{}
 	}

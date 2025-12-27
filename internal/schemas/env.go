@@ -1,10 +1,7 @@
 package schemas
 
 import (
-	"iter"
 	"maps"
-	"os"
-	"runtime"
 	"strings"
 
 	"github.com/frostyeti/cast/internal/errors"
@@ -12,10 +9,204 @@ import (
 )
 
 type Env struct {
-	Files   []string      `yaml:"files,omitempty"`
+	Files   []DotEnvFile  `yaml:"files,omitempty"`
 	Paths   []PrependPath `yaml:"paths,omitempty"`
 	Vars    EnvVars       `yaml:"vars,omitempty"`
 	Secrets []string      `yaml:"secrets,omitempty"`
+}
+
+func (e *Env) MarshalYAML() (interface{}, error) {
+	mapping := make(map[string]interface{})
+
+	if len(e.Files) > 0 {
+		files, err := e.MarshalYAML()
+		if err != nil {
+			return nil, err
+		}
+
+		mapping["files"] = files
+	}
+
+	if len(e.Paths) > 0 {
+		paths, err := e.MarshalYAML()
+		if err != nil {
+			return nil, err
+		}
+
+		mapping["paths"] = paths
+	}
+
+	if e.Vars.Len() > 0 {
+		vars, err := e.Vars.MarshalYAML()
+		if err != nil {
+			return nil, err
+		}
+
+		mapping["vars"] = vars
+	}
+
+	if len(e.Secrets) > 0 {
+		mapping["secrets"] = e.Secrets
+	}
+
+	return mapping, nil
+}
+
+func (e *Env) UnmarshalYAML(node *yaml.Node) error {
+	if e == nil {
+		e = &Env{}
+	}
+
+	if node.Kind != yaml.MappingNode {
+		return errors.YamlErrorf(node, "expected yaml mapping for env")
+	}
+
+	for i := 0; i < len(node.Content); i += 2 {
+		keyNode := node.Content[i]
+		valueNode := node.Content[i+1]
+
+		switch keyNode.Value {
+		case "files":
+			if valueNode.Kind != yaml.SequenceNode {
+				return errors.YamlErrorf(valueNode, "expected yaml sequence for 'files' field")
+			}
+			for _, item := range valueNode.Content {
+				next := DotEnvFile{
+					Contexts: []string{"*"},
+					OS:       "",
+				}
+
+				if item.Kind == yaml.ScalarNode {
+					next.Path = item.Value
+					continue
+				}
+
+				if item.Kind != yaml.MappingNode {
+					return errors.YamlErrorf(item, "expected yaml mapping or scalar for 'files' item")
+				}
+
+				keyNode := item.Content[0]
+				valueNode := item.Content[1]
+
+				switch keyNode.Value {
+				case "windows", "win", "win32":
+					next.OS = "windows"
+					next.Path = valueNode.Value
+				case "linux":
+					next.OS = "linux"
+					next.Path = valueNode.Value
+				case "darwin", "mac", "macos":
+					next.OS = "darwin"
+					next.Path = valueNode.Value
+				case "path":
+					next.Path = valueNode.Value
+				case "contexts":
+					if valueNode.Kind == yaml.ScalarNode {
+						next.Contexts = []string{valueNode.Value}
+						continue
+					}
+
+					if valueNode.Kind != yaml.SequenceNode {
+						return errors.YamlErrorf(valueNode, "expected yaml sequence for 'contexts' field in 'files' item")
+					}
+
+					for _, ctxItem := range valueNode.Content {
+						if ctxItem.Kind != yaml.ScalarNode {
+							return errors.YamlErrorf(ctxItem, "expected yaml scalar in 'contexts' sequence in 'files' item")
+						}
+						next.Contexts = append(next.Contexts, ctxItem.Value)
+					}
+				default:
+					return errors.YamlErrorf(keyNode, "unexpected field '%s' in 'files' item", keyNode.Value)
+				}
+				e.Files = append(e.Files, next)
+
+			}
+		case "paths":
+			if valueNode.Kind != yaml.SequenceNode {
+				return errors.YamlErrorf(valueNode, "expected yaml sequence for 'paths' field")
+			}
+			for _, item := range valueNode.Content {
+				next := PrependPath{
+					OS:     "",
+					Append: false,
+				}
+
+				if item.Kind == yaml.ScalarNode {
+					next.Value = item.Value
+					e.Paths = append(e.Paths, next)
+					continue
+				}
+
+				if item.Kind != yaml.MappingNode {
+					return errors.YamlErrorf(item, "expected yaml mapping or scalar for 'paths' item")
+				}
+
+				for j := 0; j < len(item.Content); j += 2 {
+					keyNode := item.Content[j]
+					valueNode := item.Content[j+1]
+
+					switch keyNode.Value {
+					case "windows", "win", "win32":
+						next.OS = "windows"
+						next.Value = valueNode.Value
+					case "linux":
+						next.OS = "linux"
+						next.Value = valueNode.Value
+					case "darwin", "mac", "macos":
+						next.OS = "darwin"
+						next.Value = valueNode.Value
+					case "value", "path":
+						if valueNode.Kind != yaml.ScalarNode {
+							return errors.YamlErrorf(valueNode, "expected yaml scalar for 'value' field in 'paths' item")
+						}
+						next.Value = valueNode.Value
+					case "os":
+						if valueNode.Kind != yaml.ScalarNode {
+							return errors.YamlErrorf(valueNode, "expected yaml scalar for 'os' field in 'paths' item")
+						}
+						next.OS = valueNode.Value
+					case "append":
+						if valueNode.Kind != yaml.ScalarNode {
+							return errors.YamlErrorf(valueNode, "expected yaml scalar for 'append' field in 'paths' item")
+						}
+						if valueNode.Value == "true" || valueNode.Value == "1" {
+							next.Append = true
+						} else {
+							next.Append = false
+						}
+					default:
+						return errors.YamlErrorf(keyNode, "unexpected field '%s' in 'paths' item", keyNode.Value)
+					}
+				}
+				e.Paths = append(e.Paths, next)
+			}
+		case "vars":
+			var envVars EnvVars
+			if err := valueNode.Decode(&envVars); err != nil {
+				return err
+			}
+			e.Vars = envVars
+		case "secrets":
+			if valueNode.Kind == yaml.ScalarNode {
+				e.Secrets = []string{valueNode.Value}
+				continue
+			}
+
+			if valueNode.Kind != yaml.SequenceNode {
+				return errors.YamlErrorf(valueNode, "expected yaml sequence for 'secrets' field")
+			}
+
+			for _, item := range valueNode.Content {
+				if item.Kind != yaml.ScalarNode {
+					return errors.YamlErrorf(item, "expected yaml scalar in 'secrets' sequence")
+				}
+				e.Secrets = append(e.Secrets, item.Value)
+			}
+		}
+	}
+
+	return nil
 }
 
 type PrependPath struct {
@@ -24,15 +215,75 @@ type PrependPath struct {
 	Append bool   `json:"append,omitempty"`
 }
 
+func (pp *PrependPath) MarshalYAML() (interface{}, error) {
+	if pp.OS == "" && !pp.Append {
+		return pp.Value, nil
+	}
+
+	mapping := make(map[string]interface{})
+	if pp.Append == false && pp.OS == "" || pp.OS == "*" {
+		mapping[pp.OS] = pp.Value
+		return mapping, nil
+	}
+
+	mapping["path"] = pp.Value
+
+	if pp.OS != "" && pp.OS != "*" {
+		mapping["os"] = pp.OS
+	}
+
+	if pp.Append {
+		mapping["append"] = pp.Append
+	}
+
+	return mapping, nil
+}
+
 type DotEnvFile struct {
 	Path     string   `yaml:"path"`
 	OS       string   `yaml:"os,omitempty"`
 	Contexts []string `yaml:"contexts,omitempty"`
 }
 
+func (df *DotEnvFile) MarshalYAML() (interface{}, error) {
+	l := len(df.Contexts)
+	isDefaultContext := l == 0 || (l == 1 && df.Contexts[0] == "*")
+
+	if df.OS == "" && isDefaultContext {
+		return df.Path, nil
+	}
+
+	mapping := make(map[string]interface{})
+
+	if df.OS != "" && df.OS != "*" && isDefaultContext {
+		mapping[df.OS] = df.Path
+		return mapping, nil
+	}
+
+	mapping["path"] = df.Path
+
+	if df.OS != "" && df.OS != "*" {
+		mapping["os"] = df.OS
+	}
+
+	if !isDefaultContext {
+		mapping["contexts"] = df.Contexts
+	}
+
+	return mapping, nil
+}
+
 type EnvVars struct {
 	Map  map[string]string
 	keys []string
+}
+
+func (e *EnvVars) MarshalYAML() (interface{}, error) {
+	mapping := make(map[string]interface{})
+	for _, k := range e.keys {
+		mapping[k] = e.Map[k]
+	}
+	return mapping, nil
 }
 
 type EnvVarsVariable struct {
@@ -223,133 +474,6 @@ func (e *EnvVars) Get(key string) (string, bool) {
 	return val, ok
 }
 
-func (e *EnvVars) Has(key string) bool {
-	e.init()
-	_, ok := e.Map[key]
-	return ok
-}
-
-func (e *EnvVars) PrependPath(path string) error {
-	e.init()
-	paths := e.SplitPath()
-
-	if len(paths) > 0 {
-		if runtime.GOOS == "windows" {
-			if strings.EqualFold(paths[0], path) {
-				return nil
-			}
-		} else {
-			if paths[0] == path {
-				return nil
-			}
-		}
-	}
-
-	paths = append([]string{path}, paths...)
-	e.SetPath(strings.Join(paths, string(os.PathListSeparator)))
-	return nil
-}
-
-func (e *EnvVars) AppendPath(path string) error {
-	e.init()
-	paths := e.SplitPath()
-
-	if len(paths) > 0 {
-		if runtime.GOOS == "windows" {
-			for _, p := range paths {
-				if strings.EqualFold(p, path) {
-					return nil
-				}
-			}
-		} else {
-			for _, p := range paths {
-				if p == path {
-					return nil
-				}
-			}
-		}
-	}
-
-	paths = append(paths, path)
-	e.SetPath(strings.Join(paths, string(os.PathListSeparator)))
-	return nil
-}
-
-func (e *EnvVars) HasPath(path string) bool {
-	e.init()
-	paths := e.SplitPath()
-	if runtime.GOOS == "windows" {
-		for _, p := range paths {
-			if strings.EqualFold(p, path) {
-				return true
-			}
-		}
-		return false
-	}
-
-	for _, p := range paths {
-		if p == path {
-			return true
-		}
-	}
-	return false
-}
-
-func (e *EnvVars) SplitPath() []string {
-	e.init()
-	if e.GetPath() == "" {
-		return []string{}
-	}
-	return strings.Split(e.GetPath(), string(os.PathListSeparator))
-}
-
-func (e *EnvVars) GetPath() string {
-	e.init()
-	if runtime.GOOS == "windows" {
-		if val, ok := e.Map["Path"]; ok {
-			return val
-		}
-
-		return ""
-	}
-
-	if val, ok := e.Map["PATH"]; ok {
-		return val
-	}
-
-	return ""
-}
-
-func (e *EnvVars) SetPath(value string) error {
-	e.init()
-	if runtime.GOOS == "windows" {
-		e.Map["Path"] = value
-		return nil
-	}
-
-	e.Map["PATH"] = value
-	return nil
-}
-
-func (e *EnvVars) GetString(key string) string {
-	e.init()
-	if val, ok := e.Map[key]; ok {
-		return val
-	}
-	return ""
-}
-
-func (e *EnvVars) Delete(key string) {
-	e.init()
-	delete(e.Map, key)
-	for i, k := range e.keys {
-		if k == key {
-			e.keys = append(e.keys[:i], e.keys[i+1:]...)
-			break
-		}
-	}
-}
-
 func (e *EnvVars) Clone() *EnvVars {
 	e.init()
 	clone := NewEnv()
@@ -393,18 +517,6 @@ func (e *EnvVars) Len() int {
 
 	e.init()
 	return len(e.Map)
-}
-
-// return iter.Seq
-func (e *EnvVars) Iter() iter.Seq2[string, string] {
-	e.init()
-	return func(yield func(string, string) bool) {
-		for _, k := range e.keys {
-			if !yield(k, e.Map[k]) {
-				break
-			}
-		}
-	}
 }
 
 func (e *EnvVars) init() {

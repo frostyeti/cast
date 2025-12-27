@@ -4,6 +4,7 @@ imports:
 
 id: "@org/project-id"
 name: "cast"
+alias: "root"
 description: "A description of the cast project."
 version: "0.1.0"
 
