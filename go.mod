@@ -11,6 +11,7 @@ require (
 	github.com/emirpasic/gods v1.18.1 // indirect
 	github.com/expr-lang/expr v1.17.7 // indirect
 	github.com/frostyeti/go/cmdargs v0.0.0 // indirect
+	github.com/frostyeti/go/dotenv v0.0.0 // indirect
 	github.com/frostyeti/go/env v0.0.0 // indirect
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
 	github.com/go-git/go-billy/v5 v5.6.2 // indirect

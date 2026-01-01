@@ -245,6 +245,20 @@ type DotEnvFile struct {
 	Contexts []string `yaml:"contexts,omitempty"`
 }
 
+func (df *DotEnvFile) HasContext(context string) bool {
+	if len(df.Contexts) == 0 {
+		return context == "*" || context == "" || context == "default"
+	}
+
+	for _, ctx := range df.Contexts {
+		if ctx == "*" || ctx == context {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (df *DotEnvFile) MarshalYAML() (interface{}, error) {
 	l := len(df.Contexts)
 	isDefaultContext := l == 0 || (l == 1 && df.Contexts[0] == "*")

@@ -18,6 +18,8 @@ github.com/expr-lang/expr v1.17.7 h1:Q0xY/e/2aCIp8g9s/LGvMDCC5PxYlvHgDZRQ4y16JX8
 github.com/expr-lang/expr v1.17.7/go.mod h1:8/vRC7+7HBzESEqt5kKpYXxrxkr31SaO8r40VO/1IT4=
 github.com/frostyeti/go/cmdargs v0.0.0 h1:gnIh90/4bPFlB7Zzb55MP/39BK8cSRPM+fxB6RWXps0=
 github.com/frostyeti/go/cmdargs v0.0.0/go.mod h1:U5MSZsMyvZLTobYj6z17c7rQ05BklWOlcsXYmanSR1A=
+github.com/frostyeti/go/dotenv v0.0.0 h1:vBojzZXCkBf05TPvanZaUe4/mIyZ9ZppkWmKRYDgwsQ=
+github.com/frostyeti/go/dotenv v0.0.0/go.mod h1:2yFvnroCQpGl4aZSo+3rGDGD8dkHbhNmHzlE6qgV3Og=
 github.com/frostyeti/go/env v0.0.0 h1:hSrpkkZ14pnM+gaiUARYOygUkI/GYD0HArvkuVLzJO0=
 github.com/frostyeti/go/env v0.0.0/go.mod h1:hKiJvCWijIkKkwta9OwEockgWnrPKJR6vhfj0L2I+hw=
 github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 h1:+zs/tPmkDkHx3U66DAb0lQFJrpS6731Oaa12ikc+DiI=

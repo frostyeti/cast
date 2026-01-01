@@ -1,9 +1,14 @@
 package schemas
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
+	"time"
 
+	"github.com/frostyeti/cast/internal/paths"
 	"github.com/gobwas/glob"
 	"go.yaml.in/yaml/v4"
 )
@@ -16,6 +21,123 @@ type WorkspaceConfig struct {
 	Defaults *WorkspaceDefaults
 	Env      *Env
 	Modules  []string
+}
+
+func NewWorkspaceConfig() *WorkspaceConfig {
+	return &WorkspaceConfig{
+		Projects: &ProjectDiscovery{
+			Include: []string{},
+			Exclude: []string{"**/*./**", "**/node_modules/**", "**/.git/**", "**/bin/**", "**/obj/**"},
+			Cache:   []CastfileInfo{},
+		},
+		Defaults: &WorkspaceDefaults{
+			Context: "default",
+			Shell:   "shell",
+			Remote:  false,
+		},
+		Env:     &Env{},
+		Modules: []string{},
+	}
+}
+
+func NewWorkspaceConfigFromPath(path string) (*WorkspaceConfig, error) {
+	ws := NewWorkspaceConfig()
+	if strings.HasSuffix(path, "workspace.yaml") {
+		ws.File = path
+		ws.Dir = filepath.Dir(path)
+	} else if strings.HasSuffix(path, ".cast") {
+		ws.Dir = path
+		ws.File = filepath.Join(path, "workspace.yaml")
+	} else {
+		ws.Dir = filepath.Join(path, ".cast")
+		ws.File = filepath.Join(ws.Dir, "workspace.yaml")
+	}
+
+	ws.Projects.Cache = []CastfileInfo{}
+	ws.Projects.Include = []string{"**"}
+	ws.Projects.AutoDiscover.Enabled = true
+	ws.Projects.AutoDiscover.Expires = 24 * time.Hour
+
+	return ws, nil
+}
+
+func NewRepoWorkspaceConfig() (*WorkspaceConfig, error) {
+
+	currentDir, err := os.Getwd()
+	if err != nil {
+		return nil, err
+	}
+
+	targetDir := currentDir
+	rootDir := ""
+	if runtime.GOOS == "windows" {
+		rootDir = filepath.VolumeName(currentDir) + "\\"
+	} else {
+		rootDir = "/"
+	}
+
+	gitDirFound := false
+	for targetDir != rootDir && targetDir != "." && targetDir != "" {
+		tryPath := filepath.Join(targetDir, ".git")
+		if _, err := os.Stat(tryPath); err == nil {
+
+			gitDirFound = true
+			break
+		}
+
+		targetDir = filepath.Dir(targetDir)
+	}
+
+	if !gitDirFound {
+		return nil, fmt.Errorf("unable to find git repository root from current directory '%s'", currentDir)
+	}
+
+	ws := NewWorkspaceConfig()
+	workspaceDir := filepath.Join(targetDir, ".cast")
+
+	ws.Dir = workspaceDir
+	ws.File = filepath.Join(workspaceDir, "workspace.yaml")
+	ws.Projects.AutoDiscover.Enabled = true
+	ws.Projects.AutoDiscover.Expires = 24 * time.Hour
+	ws.Projects.Include = []string{"**"}
+	ws.Projects.Cache = []CastfileInfo{}
+
+	return ws, nil
+}
+
+func NewGlobalWorkspaceConfig() (*WorkspaceConfig, error) {
+	ws := NewWorkspaceConfig()
+	userHomeDir, err := paths.UserHomeDir()
+	if err != nil {
+		return nil, err
+	}
+
+	ws.Projects.Cache = []CastfileInfo{}
+	homeDir := CastfileInfo{
+		Id:      "global",
+		Name:    "Global User Tasks",
+		Alias:   "global",
+		Path:    filepath.Join(userHomeDir, ".castfile"),
+		Version: "0.0.0",
+		Desc:    "global user tasks",
+		Needs:   []Need{},
+		Tags:    []string{"global", "user"},
+	}
+
+	globalWorkspace := os.Getenv("CAST_GLOBAL_WORKSPACE")
+	if globalWorkspace == "" {
+		if runtime.GOOS == "windows" {
+			globalWorkspace = filepath.Join(userHomeDir, "AppData", "Local", "cast")
+		} else {
+			globalWorkspace = filepath.Join(userHomeDir, ".local", "share", "cast")
+		}
+	}
+
+	ws.Projects.Cache = append(ws.Projects.Cache, homeDir)
+	ws.Dir = globalWorkspace
+	ws.File = filepath.Join(globalWorkspace, "workspace.yaml")
+
+	return ws, nil
 }
 
 func (wc *WorkspaceConfig) MarshalYAML() (interface{}, error) {
