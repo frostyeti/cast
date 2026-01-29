@@ -111,21 +111,22 @@ var tasksRunCmd = &cobra.Command{
 				} else {
 					return errors.Newf("failed to access project file %s: %w", projectFile, err)
 				}
-			}
-
-			if info.IsDir() {
-				projectName = projectFile
-				projectFile = ""
-				tryFiles := []string{"castfile", ".castfile", "castfile.yaml", "castfile.yml"}
-				for _, f := range tryFiles {
-					fullPath := filepath.Join(projectName, f)
-					if _, err := os.Stat(fullPath); err == nil {
-						projectFile = fullPath
-						projectName = ""
-						break
+			} else {
+				if info != nil && info.IsDir() {
+					projectName = projectFile
+					projectFile = ""
+					tryFiles := []string{"castfile", ".castfile", "castfile.yaml", "castfile.yml"}
+					for _, f := range tryFiles {
+						fullPath := filepath.Join(projectName, f)
+						if _, err := os.Stat(fullPath); err == nil {
+							projectFile = fullPath
+							projectName = ""
+							break
+						}
 					}
 				}
 			}
+
 		}
 
 		if projectFile == "" {
@@ -156,7 +157,7 @@ var tasksRunCmd = &cobra.Command{
 
 			workspaceProject, ok := project.Workspace[projectName]
 			if !ok {
-				return errors.Newf("project %s not found in workspace", projectName)
+				return errors.Newf("project '%s' not found in workspace", projectName)
 			}
 
 			if workspaceProject.Project == nil {
@@ -164,11 +165,19 @@ var tasksRunCmd = &cobra.Command{
 			}
 			project = workspaceProject.Project
 			projectFile = workspaceProject.Path
-			println("loading", workspaceProject.Path)
-			project.LoadFromYaml(workspaceProject.Path)
+
+			err = project.LoadFromYaml(workspaceProject.Path)
+			if err != nil {
+				return errors.Newf("failed to load project file %s: %w", workspaceProject.Path, err)
+			}
 		}
 
 		project.ContextName = contextName
+		err = project.Init()
+		if err != nil {
+			return errors.Newf("failed to initialize project %s: %w", projectFile, err)
+		}
+
 		params := projects.RunTasksParams{
 			Targets:     targets,
 			Args:        remainingArgs,
@@ -178,7 +187,7 @@ var tasksRunCmd = &cobra.Command{
 
 		results, err := project.RunTask(params)
 		if err != nil {
-			return errors.Newf("failure with project %s:%w", projectFile, err)
+			return errors.Newf("failure with project %s: %w", projectFile, err)
 		}
 
 		for _, res := range results {

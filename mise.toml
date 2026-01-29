@@ -6,4 +6,5 @@ deno = 'latest'
 [tasks.publish]
 run = """
   go build -o ./bin/cast ./main.go
+  cp ./bin/cast "$HOME/.local/bin/cast"
 """

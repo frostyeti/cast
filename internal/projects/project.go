@@ -50,10 +50,6 @@ func (p *Project) InitWorkspace() error {
 		return nil
 	}
 
-	if p.Workspace != nil {
-		return nil
-	}
-
 	p.Workspace = make(map[string]*ProjectInfo)
 
 	for alias, path := range p.Schema.Workspace.Aliases {
@@ -65,6 +61,38 @@ func (p *Project) InitWorkspace() error {
 
 	excludes := []glob.Glob{}
 	includes := []glob.Glob{}
+
+	if !slices.Contains(p.Schema.Workspace.Exclude, "**/node_modules/**") {
+		p.Schema.Workspace.Exclude = append(p.Schema.Workspace.Exclude, "**/node_modules/**")
+	}
+
+	if !slices.Contains(p.Schema.Workspace.Exclude, "node_modules/**") {
+		p.Schema.Workspace.Exclude = append(p.Schema.Workspace.Exclude, "node_modules/**")
+	}
+
+	if !slices.Contains(p.Schema.Workspace.Exclude, "**/bin/**") {
+		p.Schema.Workspace.Exclude = append(p.Schema.Workspace.Exclude, "**/bin/**")
+	}
+
+	if !slices.Contains(p.Schema.Workspace.Exclude, "bin/**") {
+		p.Schema.Workspace.Exclude = append(p.Schema.Workspace.Exclude, "bin/**")
+	}
+
+	if !slices.Contains(p.Schema.Workspace.Exclude, "**/obj/**") {
+		p.Schema.Workspace.Exclude = append(p.Schema.Workspace.Exclude, "**/obj/**")
+	}
+
+	if !slices.Contains(p.Schema.Workspace.Exclude, "obj/**") {
+		p.Schema.Workspace.Exclude = append(p.Schema.Workspace.Exclude, "obj/**")
+	}
+
+	if !slices.Contains(p.Schema.Workspace.Exclude, "**/.git/**") {
+		p.Schema.Workspace.Exclude = append(p.Schema.Workspace.Exclude, "**/.git/**")
+	}
+
+	if !slices.Contains(p.Schema.Workspace.Exclude, ".git/**") {
+		p.Schema.Workspace.Exclude = append(p.Schema.Workspace.Exclude, ".git/**")
+	}
 
 	for _, pattern := range p.Schema.Workspace.Exclude {
 		if strings.HasSuffix(pattern, "/**") {
@@ -90,8 +118,8 @@ func (p *Project) InitWorkspace() error {
 			name := d.Name()
 			if name == "castfile" || name == ".castfile" || name == "cast.yaml" || name == "cast.yml" {
 				proj := &ProjectInfo{}
-				proj.Path = filepath.Join(path, name)
-				dir := path
+				proj.Path = path
+				dir := filepath.Dir(path)
 				basename := filepath.Base(dir)
 				proj.Alias = basename
 				relPath, _ := filepath.Rel(dir, path)
@@ -243,11 +271,11 @@ func (p *Project) Init() error {
 	scope := p.Scope.ToMap()
 
 	substitution := true
-	if p.Schema.Config.Substitution != nil {
+	if p.Schema.Config != nil && p.Schema.Config.Substitution != nil {
 		substitution = *p.Schema.Config.Substitution
 	}
 
-	if len(p.Schema.Inventory.Hosts) > 0 {
+	if p.Schema.Inventory != nil && len(p.Schema.Inventory.Hosts) > 0 {
 		defaultsMap := p.Schema.Inventory.Defaults
 
 		for k, h := range p.Schema.Inventory.Hosts {
@@ -514,6 +542,9 @@ func (p *Project) Init() error {
 }
 
 func loadModules(p *Project) error {
+	if len(p.Schema.Modules) == 0 {
+		return nil
+	}
 
 	scope := p.Scope.ToMap()
 
@@ -747,7 +778,11 @@ func loadModules(p *Project) error {
 	return nil
 }
 
-func resolveModules(p *Project, imports types.Imports) error {
+func resolveModules(p *Project, imports *types.Imports) error {
+
+	if imports == nil || len(*imports) == 0 {
+		return nil
+	}
 
 	dataDir, err := paths.UserDataDir()
 	if err != nil {
@@ -763,7 +798,7 @@ func resolveModules(p *Project, imports types.Imports) error {
 
 	usersModuleDir := filepath.Join(dataDir, "modules")
 
-	for _, importMod := range imports {
+	for _, importMod := range *imports {
 		path := importMod.From
 		if !filepath.IsAbs(path) {
 			if path[0] == '.' {
@@ -800,7 +835,7 @@ func resolveModules(p *Project, imports types.Imports) error {
 		}
 
 		if len(mod.Imports) > 0 {
-			err := resolveModules(p, mod.Imports)
+			err := resolveModules(p, &mod.Imports)
 			if err != nil {
 				return err
 			}
@@ -816,11 +851,12 @@ func resolveModules(p *Project, imports types.Imports) error {
 }
 
 func setupEnv(p *Project) error {
+
 	e := types.NewEnv()
 	e.Merge(globalEnv)
 
 	sub := true
-	if p.Schema.Config.Substitution != nil {
+	if p.Schema.Config != nil && p.Schema.Config.Substitution != nil {
 		sub = *p.Schema.Config.Substitution
 	}
 
@@ -832,7 +868,9 @@ func setupEnv(p *Project) error {
 		}
 	}
 
-	loadPaths(p.Schema.Paths, e, p.Dir)
+	if p.Schema.Paths != nil {
+		loadPaths(*p.Schema.Paths, e, p.Dir)
+	}
 
 	f := e.Get("CAST_PATH")
 	if f != "" {
@@ -881,22 +919,26 @@ func setupEnv(p *Project) error {
 		}
 	}
 
-	_, err := loadDotEnvFiles(p.Schema.DotEnv, e, p.ContextName, sub, p.Dir)
-	if err != nil {
-		return err
-	}
-
-	for _, path := range p.importedOrder {
-		mod := p.imported[path]
-		err = loadEnv(&mod.Env, e, sub)
+	if p.Schema.DotEnv != nil {
+		_, err := loadDotEnvFiles(*p.Schema.DotEnv, e, p.ContextName, sub, p.Dir)
 		if err != nil {
 			return err
 		}
 	}
 
-	err = loadEnv(&p.Schema.Env, e, sub)
-	if err != nil {
-		return err
+	for _, path := range p.importedOrder {
+		mod := p.imported[path]
+		err := loadEnv(&mod.Env, e, sub)
+		if err != nil {
+			return err
+		}
+	}
+
+	if p.Schema.Env != nil {
+		err := loadEnv(p.Schema.Env, e, sub)
+		if err != nil {
+			return err
+		}
 	}
 
 	f = e.Get("CAST_ENV")

@@ -13,15 +13,15 @@ type DotEnv struct {
 
 type DotEnvs []DotEnv
 
-func (d DotEnvs) UnmarshalYAML(node *yaml.Node) error {
+func (d *DotEnvs) UnmarshalYAML(node *yaml.Node) error {
 	if d == nil {
-		d = []DotEnv{}
+		d = &DotEnvs{}
 	}
 
 	if node.Kind == yaml.ScalarNode {
 		var singleDotEnv DotEnv
 		singleDotEnv.Path = node.Value
-		d = append(d, singleDotEnv)
+		*d = append(*d, singleDotEnv)
 		return nil
 	}
 
@@ -35,7 +35,8 @@ func (d DotEnvs) UnmarshalYAML(node *yaml.Node) error {
 		if err != nil {
 			return err
 		}
-		d = append(d, next)
+
+		*d = append(*d, next)
 	}
 
 	return nil
