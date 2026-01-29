@@ -198,7 +198,9 @@ func NewEnv() *Env {
 }
 
 func (e *Env) Set(key, value string) {
-	e.init()
+	if e == nil {
+		e = NewEnv()
+	}
 
 	if _, ok := e.Map[key]; !ok {
 		e.keys = append(e.keys, key)
@@ -208,7 +210,9 @@ func (e *Env) Set(key, value string) {
 }
 
 func (e *Env) Get(key string) string {
-	e.init()
+	if e == nil {
+		e = NewEnv()
+	}
 	val, _ := e.Map[key]
 	return val
 }
@@ -260,8 +264,10 @@ func (e *Env) Keys() []string {
 }
 
 func (e *Env) Values() []string {
-	e.init()
-	values := make([]string, 0, len(e.Map))
+	if e == nil {
+		e = NewEnv()
+	}
+	values := []string{}
 	for _, k := range e.keys {
 		values = append(values, e.Map[k])
 	}
@@ -292,7 +298,9 @@ func (e *Env) init() {
 }
 
 func (e *Env) Merge(other *Env) {
-	e.init()
+	if e == nil {
+		e = NewEnv()
+	}
 	if other == nil {
 		return
 	}
@@ -317,7 +325,9 @@ func (e *Env) Merge(other *Env) {
 // create iterator over Env that requires iter.Seq[string, string]
 
 func (e *Env) Iter() iter.Seq2[string, string] {
-	e.init()
+	if e == nil {
+		e = NewEnv()
+	}
 	return func(yield func(string, string) bool) {
 		for _, k := range e.keys {
 			if !yield(k, e.Map[k]) {
@@ -328,7 +338,9 @@ func (e *Env) Iter() iter.Seq2[string, string] {
 }
 
 func (e *Env) PrependPath(path string) error {
-	e.init()
+	if e == nil {
+		e = NewEnv()
+	}
 	paths := e.SplitPath()
 
 	if len(paths) > 0 {
@@ -349,7 +361,9 @@ func (e *Env) PrependPath(path string) error {
 }
 
 func (e *Env) AppendPath(path string) error {
-	e.init()
+	if e == nil {
+		e = NewEnv()
+	}
 	paths := e.SplitPath()
 
 	if len(paths) > 0 {
@@ -374,7 +388,9 @@ func (e *Env) AppendPath(path string) error {
 }
 
 func (e *Env) HasPath(path string) bool {
-	e.init()
+	if e == nil {
+		e = NewEnv()
+	}
 	paths := e.SplitPath()
 	if runtime.GOOS == "windows" {
 		for _, p := range paths {
@@ -394,7 +410,9 @@ func (e *Env) HasPath(path string) bool {
 }
 
 func (e *Env) SplitPath() []string {
-	e.init()
+	if e == nil {
+		e = NewEnv()
+	}
 	if e.GetPath() == "" {
 		return []string{}
 	}
@@ -402,7 +420,9 @@ func (e *Env) SplitPath() []string {
 }
 
 func (e *Env) GetPath() string {
-	e.init()
+	if e == nil {
+		e = NewEnv()
+	}
 	if runtime.GOOS == "windows" {
 		if val, ok := e.Map["Path"]; ok {
 			return val
@@ -419,7 +439,9 @@ func (e *Env) GetPath() string {
 }
 
 func (e *Env) SetPath(value string) error {
-	e.init()
+	if e == nil {
+		e = NewEnv()
+	}
 	if runtime.GOOS == "windows" {
 		e.Map["Path"] = value
 		return nil

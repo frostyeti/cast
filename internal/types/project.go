@@ -66,7 +66,7 @@ func (p *Project) UnmarshalYAML(node *yaml.Node) error {
 			}
 			p.Desc = valueNode.Value
 
-		case "imports":
+		case "import":
 			p.Imports = &Imports{}
 			err := valueNode.Decode(p.Imports)
 			if err != nil {

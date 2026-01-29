@@ -14,15 +14,15 @@ type Import struct {
 
 type Imports []Import
 
-func (i Imports) UnmarshalYAML(node *yaml.Node) error {
+func (i *Imports) UnmarshalYAML(node *yaml.Node) error {
 	if i == nil {
-		i = []Import{}
+		i = &Imports{}
 	}
 
 	if node.Kind == yaml.ScalarNode {
 		var singleImport Import
 		singleImport.From = node.Value
-		i = append(i, singleImport)
+		*i = append(*i, singleImport)
 		return nil
 	}
 
@@ -33,7 +33,7 @@ func (i Imports) UnmarshalYAML(node *yaml.Node) error {
 			if err != nil {
 				return err
 			}
-			i = append(i, imp)
+			*i = append(*i, imp)
 		}
 		return nil
 	}

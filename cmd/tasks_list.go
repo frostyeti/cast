@@ -164,7 +164,6 @@ var taskListCmd = &cobra.Command{
 			}
 			project = workspaceProject.Project
 			projectFile = workspaceProject.Path
-			println("loading", workspaceProject.Path)
 			project.LoadFromYaml(workspaceProject.Path)
 		}
 

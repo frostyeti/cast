@@ -542,14 +542,15 @@ func (p *Project) Init() error {
 }
 
 func loadModules(p *Project) error {
-	if len(p.Schema.Modules) == 0 {
+
+	if len(p.importedOrder) == 0 {
 		return nil
 	}
 
 	scope := p.Scope.ToMap()
 
 	substitution := true
-	if p.Schema.Config.Substitution != nil {
+	if p.Schema.Config != nil && p.Schema.Config.Substitution != nil {
 		substitution = *p.Schema.Config.Substitution
 	}
 
@@ -557,7 +558,7 @@ func loadModules(p *Project) error {
 		for _, path := range p.importedOrder {
 			mod := p.imported[path]
 
-			if len(mod.Inventory.Hosts) > 0 {
+			if mod.Inventory != nil && len(mod.Inventory.Hosts) > 0 {
 				defaultsMap := mod.Inventory.Defaults
 
 				for _, hostName := range mod.Inventory.HostOrder {
@@ -715,6 +716,10 @@ func loadModules(p *Project) error {
 
 			ns := mod.Namespace
 
+			if mod.Tasks != nil && mod.Tasks.Len() > 0 && len(mod.TaskNames) == 0 {
+				mod.TaskNames = mod.Tasks.Keys()
+			}
+
 			if len(mod.TaskNames) > 0 {
 				for _, taskName := range mod.TaskNames {
 					task, ok := mod.Tasks.Get(taskName)
@@ -834,8 +839,8 @@ func resolveModules(p *Project, imports *types.Imports) error {
 			return err
 		}
 
-		if len(mod.Imports) > 0 {
-			err := resolveModules(p, &mod.Imports)
+		if mod.Imports != nil && len(*mod.Imports) > 0 {
+			err := resolveModules(p, mod.Imports)
 			if err != nil {
 				return err
 			}
@@ -862,7 +867,10 @@ func setupEnv(p *Project) error {
 
 	for _, path := range p.importedOrder {
 		mod := p.imported[path]
-		err := loadPaths(mod.Paths, e, mod.Dir)
+		if mod.Paths == nil {
+			continue
+		}
+		err := loadPaths(*mod.Paths, e, mod.Dir)
 		if err != nil {
 			return err
 		}
@@ -913,7 +921,11 @@ func setupEnv(p *Project) error {
 
 	for _, path := range p.importedOrder {
 		mod := p.imported[path]
-		_, err := loadDotEnvFiles(mod.DotEnv, e, p.ContextName, sub, mod.Dir)
+		if mod.DotEnv == nil {
+			continue
+		}
+
+		_, err := loadDotEnvFiles(*mod.DotEnv, e, p.ContextName, sub, mod.Dir)
 		if err != nil {
 			return err
 		}
@@ -928,7 +940,7 @@ func setupEnv(p *Project) error {
 
 	for _, path := range p.importedOrder {
 		mod := p.imported[path]
-		err := loadEnv(&mod.Env, e, sub)
+		err := loadEnv(mod.Env, e, sub)
 		if err != nil {
 			return err
 		}

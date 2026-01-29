@@ -115,7 +115,9 @@ func (t *TaskMap) init() {
 }
 
 func (t *TaskMap) ToMap() map[string]Task {
-	t.init()
+	if t == nil {
+		t = NewTaskMap()
+	}
 	m := make(map[string]Task, len(t.values))
 	for k, v := range t.values {
 		m[k] = v
@@ -133,19 +135,27 @@ func (t *TaskMap) Len() int {
 }
 
 func (t *TaskMap) IsEmpty() bool {
+	if t == nil {
+		return true
+	}
 	return t.Len() == 0
 }
 
 func (t *TaskMap) Keys() []string {
-	t.init()
-	keys := make([]string, 0, len(t.keys))
+	if t == nil {
+		t = NewTaskMap()
+	}
+	keys := []string{}
 	keys = append(keys, t.keys...)
 	return keys
 }
 
 func (t *TaskMap) Values() []Task {
-	t.init()
-	values := make([]Task, 0, len(t.values))
+	if t == nil {
+		t = NewTaskMap()
+	}
+
+	values := []Task{}
 	for _, k := range t.keys {
 		values = append(values, t.values[k])
 	}
@@ -153,7 +163,9 @@ func (t *TaskMap) Values() []Task {
 }
 
 func (t *TaskMap) Add(entry *Task) bool {
-	t.init()
+	if t == nil {
+		t = NewTaskMap()
+	}
 
 	if entry == nil || entry.Id == "" {
 		return false
@@ -172,6 +184,10 @@ func (t *TaskMap) Add(entry *Task) bool {
 }
 
 func (t *TaskMap) Get(name string) (Task, bool) {
+	if t == nil {
+		t = NewTaskMap()
+	}
+
 	if t == nil || t.values == nil {
 		return Task{}, false
 	}
@@ -192,6 +208,10 @@ func (t *TaskMap) Get(name string) (Task, bool) {
 }
 
 func (t *TaskMap) GetById(idValue string) (Task, bool) {
+	if t == nil {
+		t = NewTaskMap()
+	}
+
 	if t == nil || t.values == nil {
 		return Task{}, false
 	}
