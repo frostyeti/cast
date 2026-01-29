@@ -2,6 +2,72 @@ package id
 
 var idCache = map[string]string{}
 
+func IsValidAlias(alias string) bool {
+	if alias == "" {
+		return false
+	}
+
+	for _, r := range alias {
+		if (r >= 'a' && r <= 'z') ||
+			(r >= 'A' && r <= 'Z') ||
+			(r >= '0' && r <= '9') ||
+			r == '-' {
+			continue
+		}
+
+		return false
+	}
+
+	return true
+}
+
+func IsValidProjectId(id string) bool {
+	if id == "" {
+		return false
+	}
+
+	last := len(id) - 1
+
+	startsWithAt := false
+	containsSlash := false
+
+	for i, r := range id {
+		if i == 0 {
+			if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || r == '@' {
+				if r == '@' {
+					startsWithAt = true
+				}
+				continue
+			} else {
+				return false
+			}
+		}
+
+		if i == last {
+			if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') {
+				continue
+			} else {
+				return false
+			}
+		}
+
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '-' || r == '.' || r == '/' {
+			if r == '/' {
+				containsSlash = true
+			}
+			continue
+		} else {
+			return false
+		}
+	}
+
+	if startsWithAt && !containsSlash {
+		return false
+	}
+
+	return true
+}
+
 func Slugify(id string) string {
 	builder := []rune{}
 	for _, r := range id {

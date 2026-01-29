@@ -1,0 +1,73 @@
+id: "@org/project-id"
+name: "cast"
+alias: "root"
+description: "A description of the cast project."
+version: "0.1.0"
+
+imports:
+  - from: "vendor/azure"
+
+config:
+  substitution: true # defaults to true allows command substitution in tasks and jobs
+  context: "default"
+
+defaults:
+  shell: shell
+
+workspace:
+  include: 
+    - "src/**"
+    - "lib/**"
+
+  exclude:
+    - "tests/**"
+    - "docs/**"
+
+  alias:
+    src: "./path/to/src"
+    lib: "libraries"
+
+inventory:
+  hosts:
+    key:
+      host: 192.168.122.226
+      user: dev
+      tags: ["dev"]
+
+env:
+  ONE: "test"
+dotenv:
+  - "file?"
+
+paths:
+  - windows: "C:/path/to/windows/bin"
+
+secrets:
+  - ONE
+
+tasks:
+  long:
+    uses: bash
+    run: |
+      echo "This is a long task."
+    cwd: "./"
+    env:
+      EXAMPLE_VAR: "example_value"
+    hooks: true
+
+  ssh:
+    uses: ssh
+    run: |
+      echo "This task runs over SSH."
+    hosts: ["key"]
+  deno: 
+    uses: deno
+    run: "console.log('Hello from Deno task!');"
+    timeout: "10m"
+
+jobs:
+  job1:
+    - long 
+    - azure/setup
+    - deno
+    

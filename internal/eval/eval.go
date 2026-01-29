@@ -1,6 +1,7 @@
 package eval
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/expr-lang/expr"
@@ -77,4 +78,38 @@ func Eval(template string, scope map[string]interface{}) (any, error) {
 	}
 
 	return output, nil
+}
+
+func EvalAsString(template string, scope map[string]interface{}) (string, error) {
+	output, err := Eval(template, scope)
+	if err != nil {
+		return "", err
+	}
+
+	return output.(string), nil
+}
+
+func EvalAsInt(template string, scope map[string]interface{}) (int, error) {
+	output, err := Eval(template, scope)
+	if err != nil {
+		return 0, err
+	}
+
+	if val, ok := output.(int); ok {
+		return val, nil
+	}
+
+	if val, ok := output.(float64); ok {
+		return int(val), nil
+	}
+
+	if val, ok := output.(string); ok {
+		parsed, err := strconv.Atoi(val)
+		if err != nil {
+			return 0, err
+		}
+		return parsed, nil
+	}
+
+	return 0, nil
 }

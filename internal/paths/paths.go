@@ -24,6 +24,51 @@ func IsFile(path string) bool {
 	return false
 }
 
+func Resolve(path string) (string, error) {
+	if filepath.IsAbs(path) {
+		return path, nil
+	}
+
+	if path[0] == '~' {
+		homeDir, err := UserHomeDir()
+		if err != nil {
+			return "", err
+		}
+		return filepath.Join(homeDir, path[1:]), nil
+	}
+
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+
+	return absPath, nil
+}
+
+func ResolvePath(basePath, relativePath string) (string, error) {
+	if filepath.IsAbs(relativePath) {
+		return relativePath, nil
+	}
+
+	if relativePath[0] == '~' {
+		homeDir, err := UserHomeDir()
+		if err != nil {
+			return "", err
+		}
+		return filepath.Join(homeDir, relativePath[1:]), nil
+	}
+
+	if len(relativePath) == 1 && relativePath == "." {
+		return filepath.Abs(basePath)
+	}
+
+	if len(relativePath) >= 2 && (relativePath[0:2] == "./" || relativePath[0:2] == ".\\") {
+		return filepath.Abs(filepath.Join(basePath, relativePath[2:]))
+	}
+
+	return filepath.Abs(filepath.Join(basePath, relativePath))
+}
+
 var Common CommonPaths = CommonPaths{}
 
 type CommonPaths struct {
@@ -35,48 +80,24 @@ type CommonPaths struct {
 	StateDir          string
 	BinDirs           []string
 	ConfigDirs        []string
-	ImportDirs        []string
+	ModulesDirs       []string
 	TaskHandlersDirs  []string
 	GlobalHandlersDir string
-	HostsDirs         []string
+	InventoryDirs     []string
 	GlobalHostsDir    string
 }
 
-func (cp *CommonPaths) Initialize() error {
+func (cp *CommonPaths) Init(workspacePath string) error {
 	if cp.initialized {
 		return nil
 	}
 
 	cp.initialized = true
 
-	current, err := os.Getwd()
+	current := workspacePath
+	homeDir, err := UserHomeDir()
 	if err != nil {
-		return errors.New("could not get current working directory: " + err.Error())
-	}
-
-	homeDir, _ := UserHomeDir()
-
-	for current != "" && current != "/" && current != "." {
-		run := filepath.Join(current, ".cast")
-
-		if IsDir(run) {
-			break
-		}
-
-		git := filepath.Join(current, ".git")
-		if IsDir(git) {
-			break
-		}
-
-		parent := filepath.Dir(current)
-		if parent == current {
-			break
-		}
-		current = parent
-	}
-
-	if current == "" || current == "/" || current == "." {
-		current = homeDir
+		return err
 	}
 
 	cp.HomeDir = homeDir
@@ -86,8 +107,10 @@ func (cp *CommonPaths) Initialize() error {
 	cp.StateDir, _ = UserStateDir()
 	cp.BinDirs = BinDirs(current)
 	cp.ConfigDirs = ConfigDirs(current)
-	cp.ImportDirs = ImportDirs(current)
+	cp.ModulesDirs = ImportDirs(current)
 	cp.TaskHandlersDirs = TaskHandlersDirs(current)
+	cp.InventoryDirs = IventoryDirs(current)
+
 	dataDir, err := UserDataDir()
 
 	globalHandlersDir := os.Getenv("CAST_GLOBAL_HANDLERS_DIR")
@@ -141,28 +164,36 @@ func UserHomeDir() (string, error) {
 }
 
 func ConfigDirs(cwd string) []string {
+	localPath := filepath.Join(cwd, ".config", "cast")
+
 	dirs := []string{
-		filepath.Join(cwd, ".config", "cast"),
+		localPath,
 		filepath.Join(cwd, ".cast", "etc"),
 	}
 
 	configDir, err := UserConfigDir()
 	if err == nil {
-		dirs = append(dirs, configDir)
+		if configDir != localPath {
+			dirs = append(dirs, configDir)
+		}
 	}
 
 	return dirs
 }
 
 func ImportDirs(cwd string) []string {
+	localPath := filepath.Join(cwd, ".local", "share", "cast", "modules")
 	dirs := []string{
-		filepath.Join(cwd, ".local", "share", "cast", "imports"),
-		filepath.Join(cwd, ".cast", "imports"),
+		localPath,
+		filepath.Join(cwd, ".cast", "modules"),
 	}
 
 	dataDir, err := UserDataDir()
 	if err == nil {
-		dirs = append(dirs, filepath.Join(dataDir, "imports"))
+		modulesDir := filepath.Join(dataDir, "modules")
+		if modulesDir != localPath {
+			dirs = append(dirs, modulesDir)
+		}
 	}
 
 	return dirs
@@ -211,7 +242,7 @@ func (c *CommonPaths) ResolveHostsfile(hostsfilePath string) (string, error) {
 		return abs, nil
 	}
 
-	for _, dir := range c.HostsDirs {
+	for _, dir := range c.InventoryDirs {
 		fullPath := filepath.Join(dir, hostsfilePath)
 		stat, err := os.Stat(fullPath)
 		if err == nil && !stat.IsDir() {
@@ -266,7 +297,7 @@ func (c *CommonPaths) ResolveImport(importPath string) (string, error) {
 		return abs, nil
 	}
 
-	for _, dir := range c.ImportDirs {
+	for _, dir := range c.ModulesDirs {
 		fullPath := filepath.Join(dir, importPath)
 		stat, err := os.Stat(fullPath)
 		if err == nil && !stat.IsDir() {
@@ -277,7 +308,7 @@ func (c *CommonPaths) ResolveImport(importPath string) (string, error) {
 	return "", errors.New("could not resolve import path: " + importPath)
 }
 
-func HostsDirs(cwd string) []string {
+func IventoryDirs(cwd string) []string {
 	dirs := []string{
 		filepath.Join(cwd, ".cast", "hosts"),
 		filepath.Join(cwd, ".local", "share", "cast", "hosts"),
@@ -298,9 +329,10 @@ func HostsDirs(cwd string) []string {
 }
 
 func TaskHandlersDirs(cwd string) []string {
+	localPath := filepath.Join(cwd, ".local", "share", "cast", "handlers")
 	dirs := []string{
 		filepath.Join(cwd, ".cast", "handlers"),
-		filepath.Join(cwd, ".local", "share", "cast", "handlers"),
+		localPath,
 	}
 
 	globalTasksDir := os.Getenv("CAST_GLOBAL_HANDLERS_DIR")
@@ -311,7 +343,10 @@ func TaskHandlersDirs(cwd string) []string {
 
 	dataDir, err := UserDataDir()
 	if err == nil {
-		dirs = append(dirs, filepath.Join(dataDir, "handlers"))
+		handlersDir := filepath.Join(dataDir, "handlers")
+		if handlersDir != localPath {
+			dirs = append(dirs, handlersDir)
+		}
 	}
 
 	return dirs
