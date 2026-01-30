@@ -2,16 +2,24 @@ package projects
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/frostyeti/cast/internal/errors"
 	goph "github.com/melbahja/goph"
 	"golang.org/x/crypto/ssh"
 )
+
+type scpJobResult struct {
+	Host  string
+	Error error
+}
 
 func runScpTask(ctx TaskContext) *TaskResult {
 
@@ -67,17 +75,156 @@ func runScpTask(ctx TaskContext) *TaskResult {
 		return res.Fail(errors.New("No targets found for SSH task"))
 	}
 
-	for _, target := range targets {
-		if err := runScpTarget(ctx.Context, direction, ctx, target, files); err != nil {
+	maxParallel := 5
+
+	maxParallelEnv, envOk := ctx.Task.Env["CAST_SCP_MAX_PARALLEL"]
+	if envOk {
+		mp, err := strconv.Atoi(maxParallelEnv)
+		if err == nil && mp > 0 {
+			maxParallel = mp
+		}
+	}
+
+	maxParallelValue, ok := ctx.Task.With["max-parallel"]
+	if ok {
+		maxParallelStr, isString := maxParallelValue.(string)
+		if isString && maxParallelStr != "" {
+			mp, err := strconv.Atoi(maxParallelStr)
+			if err != nil || mp <= 0 {
+				return res.Fail(errors.New("Invalid max-parallel value for SCP task: " + maxParallelStr))
+			}
+			maxParallel = mp
+		}
+	}
+
+	if maxParallel > 0 {
+		// Run in parallel with worker pool
+		err := runSCPTargetsParallel(ctx.Context, direction, ctx, targets, files, maxParallel)
+		if err != nil {
+			if errors.Is(err, context.Canceled) {
+				return res.Cancel("Task " + ctx.Task.Id + " cancelled")
+			}
+			if errors.Is(err, context.DeadlineExceeded) {
+				return res.Cancel("Task " + ctx.Task.Id + " cancelled due to timeout")
+			}
 			return res.Fail(err)
+		}
+	} else {
+		// Run sequentially
+		for _, target := range targets {
+			if err := runScpTarget(ctx.Context, direction, ctx, target, files); err != nil {
+				if errors.Is(err, context.Canceled) {
+					return res.Cancel("Task " + ctx.Task.Id + " cancelled")
+				}
+				if errors.Is(err, context.DeadlineExceeded) {
+					return res.Cancel("Task " + ctx.Task.Id + " cancelled due to timeout")
+				}
+				return res.Fail(err)
+			}
 		}
 	}
 
 	res.End()
-
-	// Placeholder for running an SSH command
-	// This would typically involve executing the command over SSH
 	return res.Ok()
+}
+
+func runSCPTargetsParallel(ctx context.Context, direction string, taskContext TaskContext, targets []HostInfo, files []string, maxParallel int) error {
+	// Create a cancellable context for all workers
+	workerCtx, cancelWorkers := context.WithCancel(ctx)
+	defer cancelWorkers()
+
+	// Channel to send targets to workers
+	jobs := make(chan HostInfo, len(targets))
+	// Channel to receive results from workers
+	results := make(chan scpJobResult, len(targets))
+
+	// Track if we should stop sending new jobs
+	var stopSending sync.Once
+	var hasError bool
+	var errorMu sync.Mutex
+	var firstError error
+
+	// Start worker pool
+	var wg sync.WaitGroup
+	workerCount := maxParallel
+	if workerCount > len(targets) {
+		workerCount = len(targets)
+	}
+
+	for i := 0; i < workerCount; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				select {
+				case <-workerCtx.Done():
+					return
+				case target, ok := <-jobs:
+					if !ok {
+						return
+					}
+					err := runScpTarget(workerCtx, direction, taskContext, target, files)
+					results <- scpJobResult{Host: target.Host, Error: err}
+				}
+			}
+		}()
+	}
+
+	// Goroutine to send jobs
+	go func() {
+		for _, target := range targets {
+			// Check if we should stop sending new jobs
+			errorMu.Lock()
+			shouldStop := hasError
+			errorMu.Unlock()
+
+			if shouldStop {
+				break
+			}
+
+			select {
+			case <-workerCtx.Done():
+			case jobs <- target:
+			}
+		}
+		close(jobs)
+	}()
+
+	// Goroutine to close results channel after all workers finish
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	// Collect results
+	var collectedErrors []string
+	for result := range results {
+		if result.Error != nil {
+			errorMu.Lock()
+			if !hasError {
+				hasError = true
+				firstError = result.Error
+				stopSending.Do(func() {}) // Mark that we should stop sending
+			}
+			collectedErrors = append(collectedErrors, fmt.Sprintf("[%s]: %s", result.Host, result.Error.Error()))
+			errorMu.Unlock()
+		}
+	}
+
+	// Check if context was cancelled
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+
+	// Return combined error if any failures occurred
+	if len(collectedErrors) > 0 {
+		if len(collectedErrors) == 1 {
+			return firstError
+		}
+		return errors.New("SCP tasks failed on multiple hosts:\n" + strings.Join(collectedErrors, "\n"))
+	}
+
+	return nil
 }
 
 func runScpTarget(ctx context.Context, direction string, taskContext TaskContext, target HostInfo, files []string) error {
@@ -150,18 +297,23 @@ func runScpTarget(ctx context.Context, direction string, taskContext TaskContext
 		destination := parts[1]
 
 		if direction != "download" {
-			os.Stdout.WriteString("Uploading " + source + " to " + destination + " on " + target.Host + "\n")
+			fmt.Fprintf(os.Stdout, "[%s]: Uploading %s to %s\n", target.Host, source, destination)
 			err = Upload(ctx, client, source, destination)
 		} else {
-			os.Stdout.WriteString("Downloading " + source + " to " + destination + " from " + target.Host + "\n")
+			fmt.Fprintf(os.Stdout, "[%s]: Downloading %s to %s\n", target.Host, source, destination)
 			err = Download(ctx, client, destination, source)
 		}
 
 		if err != nil {
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				return err
+			}
 			err2 := errors.New("Failed to transfer file " + source + " to " + destination + ": " + err.Error())
 			err2 = errors.WithCause(err2, err)
 			return err2
 		}
+
+		fmt.Fprintf(os.Stdout, "[%s]: Transfer complete: %s\n", target.Host, file)
 	}
 
 	return nil

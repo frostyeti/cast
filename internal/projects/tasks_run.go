@@ -318,8 +318,16 @@ func (p *Project) RunTask(params RunTasksParams) ([]*TaskResult, error) {
 			continue
 		}
 
+		var taskCtx context.Context
+		var cancel context.CancelFunc
+		if timeout > 0 {
+			taskCtx, cancel = context.WithTimeout(params.Context, timeout)
+		} else {
+			taskCtx, cancel = context.WithCancel(params.Context)
+		}
+
 		ctx := &TaskContext{
-			Context:     params.Context,
+			Context:     taskCtx,
 			Schema:      &task,
 			Task:        m,
 			Args:        task.Args,
@@ -327,7 +335,32 @@ func (p *Project) RunTask(params RunTasksParams) ([]*TaskResult, error) {
 		}
 
 		os.Stdout.WriteString("\n\x1b[1m" + name + "\x1b[22m\n")
-		r2 := handler(*ctx)
+
+		// Run handler in a goroutine to support timeout
+		resultChan := make(chan *TaskResult, 1)
+		go func() {
+			result := handler(*ctx)
+			resultChan <- result
+		}()
+
+		var r2 *TaskResult
+		if timeout > 0 {
+			select {
+			case r2 = <-resultChan:
+				// Task completed before timeout
+			case <-time.After(timeout):
+				// Task timed out
+				cancel()
+				r2 = NewTaskResult()
+				r2.Status = runstatus.Cancelled
+				r2.Err = errors.Newf("task %s timed out after %s", task.Name, timeout)
+				os.Stdout.WriteString(fmt.Sprintf("\x1b[33m%s (timed out after %s)\x1b[0m\n", name, timeout))
+			}
+		} else {
+			// No timeout, wait indefinitely
+			r2 = <-resultChan
+		}
+		cancel()
 		r2.Task = m
 
 		if r2.Status == runstatus.Error || r2.Status == runstatus.Cancelled {
