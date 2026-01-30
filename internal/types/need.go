@@ -12,6 +12,10 @@ type Need struct {
 
 type Needs []Need
 
+func NewNeeds() *Needs {
+	return &Needs{}
+}
+
 func (n *Needs) FindByName(id string) (*Need, bool) {
 	for _, need := range *n {
 		if need.Id == id {

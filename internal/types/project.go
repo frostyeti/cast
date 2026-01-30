@@ -19,6 +19,7 @@ type Project struct {
 	Paths     *Paths           `yaml:"paths,omitempty" json:"paths,omitempty"`
 	Defaults  *ProjectDefaults `yaml:"defaults,omitempty" json:"defaults,omitempty"`
 	Config    *ProjectConfig
+	On        *On        `yaml:"on,omitempty" json:"on,omitempty"`
 	Meta      *Meta      `yaml:"meta,omitempty" json:"meta,omitempty"`
 	Workspace *Workspace `yaml:"workspace,omitempty" json:"workspace,omitempty"`
 	Tasks     *TaskMap   `yaml:"tasks,omitempty" json:"tasks,omitempty"`
@@ -66,6 +67,16 @@ func (p *Project) UnmarshalYAML(node *yaml.Node) error {
 			}
 			p.Desc = valueNode.Value
 
+		case "on":
+			if valueNode.Kind != yaml.MappingNode {
+				return errors.NewYamlError(valueNode, "project on must be a mapping node.")
+			}
+			p.On = &On{}
+			err := valueNode.Decode(p.On)
+			if err != nil {
+				return errors.NewYamlError(valueNode, "failed to decode project on: "+err.Error())
+			}
+
 		case "import":
 			p.Imports = &Imports{}
 			err := valueNode.Decode(p.Imports)
@@ -109,7 +120,7 @@ func (p *Project) UnmarshalYAML(node *yaml.Node) error {
 				return errors.NewYamlError(valueNode, "failed to decode project workspace: "+err.Error())
 			}
 		case "tasks":
-			p.Tasks = &TaskMap{}
+			p.Tasks = NewTaskMap()
 			err := valueNode.Decode(p.Tasks)
 			if err != nil {
 				return errors.NewYamlError(valueNode, "failed to decode project tasks: "+err.Error())
