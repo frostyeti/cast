@@ -1,4 +1,3 @@
-
 {
     "$schema": "https://json-schema.org/draft-07/schema",
     "$id": "cast.mod.schema.json",
@@ -39,7 +38,7 @@
                         "ns": {
                             "type": "string",
                             "description": "The namespace to import the module into"
-                        }, 
+                        },
                         "tasks": {
                             "type": "array",
                             "items": {
@@ -52,13 +51,13 @@
             },
             "description": "A list of Cast modules to import"
         },
- 
+
         "env": {
-             "$ref": "#/definitions/env",
+            "$ref": "#/definitions/env",
             "description": "Environment variables to set for the command"
         },
         "dotenv": {
-            "type":"array",
+            "type": "array",
             "items": {
                 "anyOf": [{
                     "type": "string"
@@ -98,17 +97,17 @@
                             "type": "string",
                             "description": "The path to the .env file for the specified platform"
                         },
-                            "contexts": {
-                                "anyOf": [{
+                        "contexts": {
+                            "anyOf": [{
+                                "type": "string"
+                            }, {
+                                "type": "array",
+                                "items": {
                                     "type": "string"
-                                }, {
-                                    "type": "array",
-                                    "items": {
-                                        "type": "string"
-                                    }
-                                }]
-                            }
+                                }
+                            }]
                         }
+                    }
                 }]
             },
             "description": "A list of .env files to load before running the task"
@@ -117,7 +116,6 @@
             "type": "object",
             "properties": {
                 "defaults": {
-
                 },
                 "hosts": {
                     "anyOf": [{
@@ -135,12 +133,12 @@
                 }
             }
         },
-       
+
         "tasks": {
             "type": "object",
             "patternProperties": {
                 "^[a-zA-Z0-9_\\-:.]+$": {
-                   "anyOf": [
+                    "anyOf": [
                         {
                             "$ref": "#/definitions/task"
                         }
@@ -187,7 +185,7 @@
                             }
                         ]
                     }
-               }
+                }
             ]
         },
         "task": {
@@ -214,7 +212,7 @@
                     "description": "The name of another task to extend"
                 },
                 "dotenv": {
-                    "type":"array",
+                    "type": "array",
                     "items": {
                         "type": "string"
                     },
@@ -278,10 +276,10 @@
                 "force": {
                     "description": "A boolean or predicate expression that determines if a task runs even if when others faile",
                     "anyOf": [{
-                        "type":"boolean", 
+                        "type": "boolean",
                         "description": "Forces "
                     }, {
-                        "type":"string",
+                        "type": "string",
                         "description": "An expression that determines whether to force run the task"
                     }]
                 },
@@ -306,20 +304,20 @@
                 "with": {
                     "type": "object",
                     "anyOf": [{
-                         "if": {
-                             "properties": {
-                                 "uses": {
-                                     "type": "string",
-                                     "enum": ["scp", "ssh", "tmpl"]
-                                 }
-                             },
-                             "required": ["uses"]
-                         },
-                         "properties": {
+                        "if": {
+                            "properties": {
+                                "uses": {
+                                    "type": "string",
+                                    "enum": ["scp", "ssh", "tmpl"]
+                                }
+                            },
+                            "required": ["uses"]
+                        },
+                        "properties": {
                             "max-parallel": {
                                 "type": "number"
                             }
-                         }
+                        }
                     }],
                     "additionalProperties": {
                         "type": [
