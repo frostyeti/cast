@@ -61,7 +61,7 @@ func (p *Project) UnmarshalYAML(node *yaml.Node) error {
 				return errors.NewYamlError(valueNode, "project version must be a scalar.")
 			}
 			p.Version = valueNode.Value
-		case "description":
+		case "description", "desc":
 			if valueNode.Kind != yaml.ScalarNode {
 				return errors.NewYamlError(valueNode, "project description must be a scalar.")
 			}
@@ -133,11 +133,7 @@ func (p *Project) UnmarshalYAML(node *yaml.Node) error {
 			}
 
 		default:
-			// For other fields, use default unmarshaling
-			err := valueNode.Decode(p)
-			if err != nil {
-				return errors.NewYamlError(valueNode, "failed to decode project field "+keyNode.Value+": "+err.Error())
-			}
+			continue
 		}
 	}
 

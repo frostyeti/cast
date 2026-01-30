@@ -1,0 +1,537 @@
+
+{
+    "$schema": "https://json-schema.org/draft-07/schema",
+    "$id": "castfile.schema.json",
+    "title": "Castfile Schema",
+    "description": "A task in the runfile",
+    "type": "object",
+    "additionalProperties": true,
+    "properties": {
+        "name": {
+            "type": "string",
+            "description": "The name of the project"
+        },
+        "id": {
+            "type": "string",
+            "description": "The unique identifier of the project"
+        },
+        "version": {
+            "type": "string",
+            "description": "The version of the project"
+        },
+        "desc": {
+            "type": "string",
+            "description": "A brief description of the project"
+        },
+        "imports": {
+            "type": "array",
+            "items": {
+                "anyOf": [{
+                    "type": "string"
+                }, {
+                    "type": "object",
+                    "properties": {
+                        "from": {
+                            "type": "string",
+                            "description": "The path or URL to import the module from"
+                        },
+                        "ns": {
+                            "type": "string",
+                            "description": "The namespace to import the module into"
+                        }, 
+                        "tasks": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            },
+                            "description": "A list of specific tasks to import from the module"
+                        }
+                    }
+                }]
+            },
+            "description": "A list of Cast modules to import. If the path is not relative, it will be treated as a module registry reference."
+        },
+
+        "config": {
+            "type": "object",
+            "properties": {
+                "substitution": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Disable command substitution in xtaskfile"
+                },
+                "context": {
+                    "type": "string",
+                    "description": "The default context to use for the tasks"
+                }
+            }
+        },
+        "defaults": {
+            "type": "object",
+            "properties": {
+                "shell": {
+                    "type": "string",
+                    "description": "The default shell to use for shell tasks"
+                }
+            }
+        },
+        "workspace": {
+            "type": "object",
+            "properties": {
+                "include": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "A list of file patterns to include in the workspace"
+                },
+                "exclude": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "A list of file patterns to exclude from the workspace"
+                },
+                "aliases": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    },
+                    "description": "A map of path aliases for the workspace"
+                }
+            }
+        },
+ 
+        "env": {
+             "$ref": "#/definitions/env",
+            "description": "Environment variables to set for the command"
+        },
+
+        "paths": {
+            "type": "array",
+            "items": {
+                "anyOf": [{
+                    "type": "string"
+                }, {
+                    "type": "object",
+                    "properties": {
+                        "windows": {
+                            "type": "string",
+                            "description": "The path to add to PATH for Windows hosts"
+                        }
+                    }
+                }, {
+                    "type": "object",
+                    "properties": {
+                        "linux": {
+                            "type": "string",
+                            "description": "The path to add to PATH for Linux hosts"
+                        }
+                    }
+                }, {
+                    "type": "object",
+                    "properties": {
+                        "darwin": {
+                            "type": "string",
+                            "description": "The path to add to PATH for macOS hosts"
+                        }
+                    }
+                }, {
+                    "type": "object",
+                    "properties": {
+                        "os": {
+                            "type": "string",
+                            "description": "The platform name (e.g., 'linux', 'windows', 'darwin')",
+                            "enum": ["windows", "linux", "darwin"]
+                        },
+                        "path": {
+                            "type": "string",
+                            "description": "The path to add to PATH for the specified platform"
+                        },
+                        "appaend": {
+                            "type": "boolean",
+                            "description": "Appends the path rather than prepends the path"
+                        }
+                    }
+                }]
+            }
+        }, 
+
+        "dotenv": {
+            "type":"array",
+            "items": {
+                "anyOf": [{
+                    "type": "string"
+                }, {
+                    "type": "object",
+                    "properties": {
+                        "windows": {
+                            "type": "string",
+                            "description": "The path to the .env file for Windows hosts"
+                        }
+                    }
+                }, {
+                    "type": "object",
+                    "properties": {
+                        "linux": {
+                            "type": "string",
+                            "description": "The path to the .env file for Linux hosts"
+                        }
+                    }
+                }, {
+                    "type": "object",
+                    "properties": {
+                        "darwin": {
+                            "type": "string",
+                            "description": "The path to the .env file for macOS hosts"
+                        }
+                    }
+                }, {
+                    "type": "object",
+                    "properties": {
+                        "os": {
+                            "type": "string",
+                            "description": "The platform name (e.g., 'linux', 'windows', 'darwin')",
+                            "enum": ["windows", "linux", "darwin"]
+                        },
+                        "path": {
+                            "type": "string",
+                            "description": "The path to the .env file for the specified platform"
+                        },
+                        "context": {
+                            "type": "string",
+                            "description": "The context name to apply this .env file to"
+                        }
+                    }
+                }]
+            },
+            "description": "A list of .env files to load before running the task"
+        },
+        "inventory": {
+            "type": "object",
+            "properties": {
+                "defaults": {
+
+                },
+                "hosts": {
+                    "anyOf": [{
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/definitions/host"
+                        }
+                    }, {
+                        "type": "object",
+                        "additionalProperties": {
+                            "$ref": "#/definitions/host"
+                        }
+                    }],
+                    "description": "A map of host names to host definitions"
+                }
+            }
+        },
+       
+        "tasks": {
+            "type": "object",
+            "patternProperties": {
+                "^[a-zA-Z0-9_\\-:.]+$": {
+                   "anyOf": [
+                        {
+                            "$ref": "#/definitions/task"
+                        }
+                    ]
+                }
+            },
+            "description": "A map of task names to task definitions"
+        }
+    },
+    "definitions": {
+        "env": {
+            "anyOf": [
+                {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                {
+                    "type": "array",
+                    "items": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "description": "The environment variable in the format of 'NAME=VALUE'"
+                            },
+                            {
+                                "type": "object",
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "description": "The name of the environment variable"
+                                    },
+                                    "value": {
+                                        "type": "string",
+                                        "description": "The value of the environment variable"
+                                    },
+                                    "secret": {
+                                        "type": "boolean",
+                                        "description": "Whether the environment variable is a secret",
+                                        "default": false
+                                    }
+                                }
+                            }
+                        ]
+                    }
+               }
+            ]
+        },
+        "task": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "description": "The unique identifier of the task"
+                },
+                "desc": {
+                    "type": "string",
+                    "description": "A brief description of the task"
+                },
+                "help": {
+                    "type": "string",
+                    "description": "A detailed help message for the task"
+                },
+                "env": {
+                    "$ref": "#/definitions/env",
+                    "description": "Environment variables to set for the task"
+                },
+                "extends": {
+                    "type": "string",
+                    "description": "The name of another task to extend"
+                },
+                "dotenv": {
+                    "type":"array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": ".env files to load before running the task"
+                },
+                "uses": {
+                    "anyOf": [
+                        {
+                            "type": "string",
+                            "enum": [
+                                "bash",
+                                "pwsh",
+                                "python",
+                                "powershell",
+                                "sh",
+                                "node",
+                                "bun",
+                                "deno",
+                                "ruby",
+                                "ssh",
+                                "scp",
+                                "tmpl",
+                                "shell"
+                            ],
+                            "description": "The type of command to run"
+                        }
+                    ]
+                },
+                "run": {
+                    "type": "string",
+                    "description": "The command to run for this task"
+                },
+                "timeout": {
+                    "type": "string",
+                    "pattern": "^[0-9]+(s|m|h)?$",
+                    "description": "Timeout in seconds for the task (e.g., '30s', '2m', '1h')"
+                },
+                "if": {
+                    "description": "A predicate expression that determines if a task runs or not. e.g. os == 'windows'",
+                    "anyOf": [{
+                        "type": "boolean"
+                    }, {
+                        "type": "string",
+                        "description": "An expression that determines whether to run the task"
+                    }]
+                },
+                "cwd": {
+                    "type": "string",
+                    "description": "The working directory to run the task in"
+                },
+                "template": {
+                    "description": "Instructs the task to evaluate the run field as a template. Defaults to false. ",
+                    "anyOf": [{
+                        "type": "boolean"
+                    }, {
+                        "type": "string",
+                        "description": "The name of the template engine to use",
+                        "enum": ["gotmpl"]
+                    }]
+                },
+                "force": {
+                    "description": "A boolean or predicate expression that determines if a task runs even if when others faile",
+                    "anyOf": [{
+                        "type":"boolean", 
+                        "description": "Forces "
+                    }, {
+                        "type":"string",
+                        "description": "An expression that determines whether to force run the task"
+                    }]
+                },
+                "needs": {
+                    "type": "array",
+                    "items": {
+                        "anyOf": [{
+                            "type": "string",
+                            "pattern": "^[a-zA-Z0-9_\\-:.]+$"
+                        }]
+                    },
+                    "description": "A list of tasks that this task depends on"
+                },
+                "hosts": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "pattern": "^[a-zA-Z0-9_\\-:.]+$"
+                    },
+                    "description": "A list of the names of hosts to run this task on"
+                },
+                "with": {
+                    "type": "object",
+                    "anyOf": [{
+                         "if": {
+                             "properties": {
+                                 "uses": {
+                                     "type": "string",
+                                     "enum": ["scp", "ssh", "tmpl"]
+                                 }
+                             },
+                             "required": ["uses"]
+                         },
+                         "properties": {
+                            "max-parallel": {
+                                "type": "number"
+                            }
+                         }
+                    }],
+                    "additionalProperties": {
+                        "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "array"
+                        ]
+                    }
+                }
+            }
+        },
+        "host": {
+            "type": "object",
+            "required": [
+                "host",
+                "user"
+            ],
+            "properties": {
+                "host": {
+                    "type": "string",
+                    "description": "The cname or ip of the host"
+                },
+                "user": {
+                    "type": "string",
+                    "description": "The user to connect as"
+                },
+                "os": {
+                    "type": "object",
+                    "properties": {
+                        "platform": {
+                            "oneOf": [
+                                {
+                                    "type": "string",
+                                    "enum": [
+                                        "linux",
+                                        "darwin",
+                                        "windows"
+                                    ]
+                                },
+                                {
+                                    "type": "null"
+                                },
+                                {
+                                    "type": "string",
+                                    "description": "Custom platform string"
+                                }
+                            ]
+                        },
+                        "arch": {
+                            "oneOf": [
+                                {
+                                    "type": "string",
+                                    "enum": [
+                                        "amd64",
+                                        "arm64",
+                                        "386"
+                                    ]
+                                },
+                                {
+                                    "type": "null"
+                                },
+                                {
+                                    "type": "string",
+                                    "description": "Custom architecture string"
+                                }
+                            ]
+                        },
+                        "codename": {
+                            "type": "string",
+                            "description": "The codename of the OS"
+                        },
+                        "variant": {
+                            "type": "string",
+                            "description": "The variant of the OS, e.g., 'Windows Server'"
+                        },
+                        "version": {
+                            "type": "string",
+                            "description": "The version of the OS"
+                        }
+                    }
+                },
+                "identity": {
+                    "type": "string",
+                    "description": "The identity file for SSH connections"
+                },
+                "password": {
+                    "type": "string",
+                    "description": "The environment variable that contains the password for SSH connections"
+                },
+                "port": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 65535,
+                    "description": "The port number for the host"
+                },
+                "meta": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null",
+                            "array",
+                            "object"
+                        ]
+                    },
+                    "description": "Additional metadata for the host"
+                },
+                "tags": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "A list of tags associated with the host"
+                }
+            }
+        }
+    }
+}

@@ -3,6 +3,13 @@ name: "cast"
 description: "A description of the cast project."
 version: "0.1.0"
 
+#imports:
+#  - from: "vendor/azure"
+
+config:
+  substitution: true # defaults to true allows command substitution in tasks and jobs
+  context: "default"
+
 defaults:
   shell: shell
 
@@ -15,7 +22,7 @@ workspace:
     - "tests/**"
     - "docs/**"
 
-  alias:
+  aliases:
     src: "./path/to/src"
     lib: "libraries"
 
@@ -25,10 +32,10 @@ inventory:
       host: 192.168.122.226
       user: dev
       tags: ["dev"]
-      password: "ZAQ!2wsx"
 
 env:
   ONE: "test"
+
 dotenv:
   - "file?"
 
@@ -50,6 +57,8 @@ tasks:
     run: |
       echo "This task runs over SSH."
     hosts: ["key"]
+    needs:
+      - long
   deno: 
     uses: deno
     run: "console.log('Hello from Deno task!');"

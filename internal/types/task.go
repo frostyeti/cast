@@ -55,7 +55,7 @@ func (t *Task) UnmarshalYAML(value *yaml.Node) error {
 				return errors.NewYamlError(valueNode, "expected yaml scalar for 'id' field")
 			}
 			t.Id = valueNode.Value
-		case "desc":
+		case "desc", "description":
 			if valueNode.Kind != yaml.ScalarNode {
 				return errors.NewYamlError(valueNode, "expected yaml scalar for 'desc' field")
 			}
