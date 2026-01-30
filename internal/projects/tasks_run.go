@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"html/template"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -125,6 +126,20 @@ func (p *Project) RunTask(params RunTasksParams) ([]*TaskResult, error) {
 
 		if len(task.DotEnv) > 0 {
 			for _, envFile := range task.DotEnv {
+				if !filepath.IsAbs(envFile) {
+					absPath, err := paths.ResolvePath(p.Dir, envFile)
+					if err != nil {
+						os.Stdout.WriteString("\n\x1b[1m" + name + "\x1b[22m \x1b[31m(failed)\x1b[0m\n")
+						err = errors.Newf("failed to resolve dotenv file %s for task %s: %w", envFile, task.Name, err)
+						os.Stdout.WriteString(fmt.Sprintf("\x1b[31m%v\x1b[0m\n", err))
+						res.Fail(err)
+						hasFailed = true
+						results = append(results, res)
+						continue
+					}
+					envFile = absPath
+				}
+
 				if paths.IsFile(envFile) {
 					data, err := os.ReadFile(envFile)
 					if err != nil {

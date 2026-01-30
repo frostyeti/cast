@@ -98,11 +98,17 @@
                             "type": "string",
                             "description": "The path to the .env file for the specified platform"
                         },
-                        "context": {
-                            "type": "string",
-                            "description": "The context name to apply this .env file to"
+                            "contexts": {
+                                "anyOf": [{
+                                    "type": "string"
+                                }, {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string"
+                                    }
+                                }]
+                            }
                         }
-                    }
                 }]
             },
             "description": "A list of .env files to load before running the task"

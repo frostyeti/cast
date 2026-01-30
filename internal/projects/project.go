@@ -1122,6 +1122,7 @@ func loadDotEnvFiles(dotenvSection types.DotEnvs, e *types.Env, contextName stri
 
 	for _, file := range dotenvFiles {
 		absFile, err := paths.ResolvePath(basePath, file)
+		println("dotenv file", absFile)
 		if err != nil {
 			return nil, err
 		}
