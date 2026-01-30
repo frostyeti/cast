@@ -13,7 +13,7 @@ type TaskResult struct {
 	StartedAt time.Time
 	EndedAt   time.Time
 	Message   string
-	Output    map[string]interface{}
+	Output    map[string]string
 	Task      *Task
 }
 
@@ -61,6 +61,6 @@ func NewTaskResult() *TaskResult {
 		StartedAt: time.Now().UTC(),
 		EndedAt:   time.Now().UTC(),
 		Message:   "",
-		Output:    make(map[string]interface{}),
+		Output:    make(map[string]string),
 	}
 }

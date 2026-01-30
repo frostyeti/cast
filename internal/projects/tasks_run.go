@@ -4,10 +4,12 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"html/template"
 	"os"
 	"strings"
 	"time"
 
+	"github.com/Masterminds/sprig"
 	"github.com/frostyeti/cast/internal/errors"
 	"github.com/frostyeti/cast/internal/eval"
 	"github.com/frostyeti/cast/internal/paths"
@@ -220,6 +222,24 @@ func (p *Project) RunTask(params RunTasksParams) ([]*TaskResult, error) {
 
 		scope := p.Scope.Clone()
 		scope.Set("env", m.Env)
+		scope.Set("outputs", globalOutputs)
+		scope.Set("args", m.Args)
+		scope.Set("success", !hasFailed)
+
+		for k, v := range globalOutputs {
+			// if string, ok := v.(string); ok {
+			if str, ok := v.(string); ok {
+				m.Env[strings.ToUpper(fmt.Sprintf("OUTPUTS_%s", k))] = str
+				continue
+			}
+
+			key := k
+			if stringMap, ok := v.(map[string]string); ok {
+				for sk, sv := range stringMap {
+					m.Env[strings.ToUpper(fmt.Sprintf("OUTPUTS_%s_%s", key, sk))] = sv
+				}
+			}
+		}
 
 		force := false
 		pred := false
@@ -258,8 +278,56 @@ func (p *Project) RunTask(params RunTasksParams) ([]*TaskResult, error) {
 			continue
 		}
 
+		if m.Template == "true" || m.Template == "gotmpl" {
+			tmpl, err := template.New("run").Funcs(sprig.FuncMap()).Parse(m.Run)
+			if err != nil {
+				err := errors.Newf("failed to evaluate template in run for task %s: %w", task.Name, err)
+				os.Stdout.WriteString("\n\x1b[1m" + name + "\x1b[22m \x1b[31m(failed)\x1b[0m\n")
+				os.Stdout.WriteString(fmt.Sprintf("\x1b[31m%v\x1b[0m\n", err))
+				res.Fail(err)
+				results = append(results, res)
+				continue
+			}
+			sb := &strings.Builder{}
+			err = tmpl.Execute(sb, scope.ToMap())
+			if err != nil {
+				err := errors.Newf("failed to evaluate template in run for task %s: %w", task.Name, err)
+				os.Stdout.WriteString("\n\x1b[1m" + name + "\x1b[22m \x1b[31m(failed)\x1b[0m\n")
+				os.Stdout.WriteString(fmt.Sprintf("\x1b[31m%v\x1b[0m\n", err))
+				res.Fail(err)
+				results = append(results, res)
+				continue
+			}
+
+			m.Run = sb.String()
+		}
+
 		if strings.ContainsRune(m.Cwd, '{') {
-			cwd, err := eval.EvalAsString(m.Cwd, scope.ToMap())
+			tmpl, err := template.New("cwd").Funcs(sprig.FuncMap()).Parse(m.Cwd)
+			if err != nil {
+				err := errors.Newf("failed to evaluate cwd for task %s: %w", task.Name, err)
+				os.Stdout.WriteString("\n\x1b[1m" + name + "\x1b[22m \x1b[31m(failed)\x1b[0m\n")
+				os.Stdout.WriteString(fmt.Sprintf("\x1b[31m%v\x1b[0m\n", err))
+				res.Fail(err)
+				results = append(results, res)
+				continue
+			}
+			sb := &strings.Builder{}
+			err = tmpl.Execute(sb, scope.ToMap())
+			if err != nil {
+				err := errors.Newf("failed to evaluate cwd for task %s: %w", task.Name, err)
+				os.Stdout.WriteString("\n\x1b[1m" + name + "\x1b[22m \x1b[31m(failed)\x1b[0m\n")
+				os.Stdout.WriteString(fmt.Sprintf("\x1b[31m%v\x1b[0m\n", err))
+				res.Fail(err)
+				results = append(results, res)
+				continue
+			}
+
+			m.Cwd = sb.String()
+		}
+
+		if strings.ContainsRune(m.Cwd, '$') {
+			cwd, err := env.ExpandWithOptions(m.Cwd, opts)
 			if err != nil {
 				err := errors.Newf("failed to evaluate cwd for task %s: %w", task.Name, err)
 				os.Stdout.WriteString("\n\x1b[1m" + name + "\x1b[22m \x1b[31m(failed)\x1b[0m\n")
@@ -332,6 +400,7 @@ func (p *Project) RunTask(params RunTasksParams) ([]*TaskResult, error) {
 			Task:        m,
 			Args:        task.Args,
 			ContextName: params.ContextName,
+			Outputs:     globalOutputs,
 		}
 
 		os.Stdout.WriteString("\n\x1b[1m" + name + "\x1b[22m\n")
@@ -434,7 +503,7 @@ func (p *Project) RunTask(params RunTasksParams) ([]*TaskResult, error) {
 			}
 
 			if paths.IsFile(castOutputs) {
-				outputs := map[string]interface{}{}
+				outputs := map[string]string{}
 				data, err := os.ReadFile(castOutputs)
 				if err != nil {
 					return nil, err
@@ -463,7 +532,6 @@ func (p *Project) RunTask(params RunTasksParams) ([]*TaskResult, error) {
 
 					outputs[*key] = v
 				}
-
 				res.Output = outputs
 
 				globalOutputs[task.Id] = outputs

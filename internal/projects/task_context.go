@@ -12,4 +12,5 @@ type TaskContext struct {
 	Context     context.Context
 	Args        []string
 	ContextName string
+	Outputs     map[string]any
 }
