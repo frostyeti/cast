@@ -116,6 +116,13 @@
             "type": "object",
             "properties": {
                 "defaults": {
+                    "type": "object",
+                    "patternProperties": {
+                        "^[a-zA-Z0-9_\\-:.]+$": {
+                            "$ref": "#/definitions/host-defaults"
+                        }
+                    },
+                    "description": "A map of default host definitions"
                 },
                 "hosts": {
                     "anyOf": [{
@@ -330,6 +337,106 @@
                 }
             }
         },
+        "host-defaults": {
+            "type": "object",
+            
+            "properties": {
+                "user": {
+                    "type": "string",
+                    "description": "The user to connect as"
+                },
+                "os": {
+                    "type": "object",
+                    "properties": {
+                        "platform": {
+                            "oneOf": [
+                                {
+                                    "type": "string",
+                                    "enum": [
+                                        "linux",
+                                        "darwin",
+                                        "windows"
+                                    ]
+                                },
+                                {
+                                    "type": "null"
+                                },
+                                {
+                                    "type": "string",
+                                    "description": "Custom platform string"
+                                }
+                            ]
+                        },
+                        "arch": {
+                            "oneOf": [
+                                {
+                                    "type": "string",
+                                    "enum": [
+                                        "amd64",
+                                        "arm64",
+                                        "386"
+                                    ]
+                                },
+                                {
+                                    "type": "null"
+                                },
+                                {
+                                    "type": "string",
+                                    "description": "Custom architecture string"
+                                }
+                            ]
+                        },
+                        "codename": {
+                            "type": "string",
+                            "description": "The codename of the OS"
+                        },
+                        "variant": {
+                            "type": "string",
+                            "description": "The variant of the OS, e.g., 'Windows Server'"
+                        },
+                        "version": {
+                            "type": "string",
+                            "description": "The version of the OS"
+                        }
+                    }
+                },
+                "identity": {
+                    "type": "string",
+                    "description": "The identity file for SSH connections"
+                },
+                "password": {
+                    "type": "string",
+                    "description": "The environment variable that contains the password for SSH connections"
+                },
+                "port": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 65535,
+                    "description": "The port number for the host"
+                },
+                "meta": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null",
+                            "array",
+                            "object"
+                        ]
+                    },
+                    "description": "Additional metadata for the host"
+                },
+                "tags": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "A list of tags associated with the host"
+                }
+            }
+        },
         "host": {
             "type": "object",
             "required": [
@@ -434,6 +541,10 @@
                         "type": "string"
                     },
                     "description": "A list of tags associated with the host"
+                },
+                "defaults": {
+                    "type": "string",
+                    "description": "The name of the defaults block to use for this host"
                 }
             }
         }

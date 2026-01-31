@@ -279,25 +279,26 @@ func (p *Project) Init() error {
 		defaultsMap := p.Schema.Inventory.Defaults
 
 		for k, h := range p.Schema.Inventory.Hosts {
-			if h.Defaults != "" {
-				d, ok := defaultsMap[h.Defaults]
-				if !ok {
-					return errors.Newf("host %s references undefined defaults %s", h.Host, h.Defaults)
-				}
+			defaultsName := h.Defaults
+			if defaultsName == "" {
+				defaultsName = "default"
+			}
 
-				if h.User == nil || *h.User == "" && *d.User != "" {
+			d, ok := defaultsMap[defaultsName]
+			if ok {
+				if (h.User == nil || *h.User == "") && d.User != nil {
 					h.User = d.User
 				}
 
-				if h.Port == nil || *h.Port == 0 && *d.Port != 0 {
+				if (h.Port == nil || *h.Port == 0) && d.Port != nil {
 					h.Port = d.Port
 				}
 
-				if h.IdentityFile == nil || *h.IdentityFile == "" && *d.IdentityFile != "" {
+				if (h.IdentityFile == nil || *h.IdentityFile == "") && d.IdentityFile != nil {
 					h.IdentityFile = d.IdentityFile
 				}
 
-				if h.Password == nil || *h.Password == "" && *d.Password != "" {
+				if (h.Password == nil || *h.Password == "") && d.Password != nil {
 					h.Password = d.Password
 				}
 
@@ -335,6 +336,10 @@ func (p *Project) Init() error {
 					if !slices.Contains(h.Tags, g) {
 						h.Tags = append(h.Tags, g)
 					}
+				}
+			} else {
+				if defaultsName != "default" {
+					return errors.Newf("host %s references undefined defaults %s", h.Host, h.Defaults)
 				}
 			}
 			if strings.ContainsRune(h.Host, '{') {
@@ -421,6 +426,7 @@ func (p *Project) Init() error {
 				IdentityFile: identityFile,
 				OS:           osInfo,
 				Meta:         *meta,
+				Tags:         h.Tags,
 			}
 
 			if _, ok := p.Hosts[h.Host]; !ok {
@@ -563,25 +569,26 @@ func loadModules(p *Project) error {
 
 				for _, hostName := range mod.Inventory.HostOrder {
 					h := mod.Inventory.Hosts[hostName]
-					if h.Defaults != "" {
-						d, ok := defaultsMap[h.Defaults]
-						if !ok {
-							return errors.Newf("host %s references undefined defaults %s", h.Host, h.Defaults)
-						}
+					defaultsName := h.Defaults
+					if defaultsName == "" {
+						defaultsName = "default"
+					}
 
-						if h.User == nil || *h.User == "" && *d.User != "" {
+					d, ok := defaultsMap[defaultsName]
+					if ok {
+						if (h.User == nil || *h.User == "") && d.User != nil {
 							h.User = d.User
 						}
 
-						if h.Port == nil || *h.Port == 0 && *d.Port != 0 {
+						if (h.Port == nil || *h.Port == 0) && d.Port != nil {
 							h.Port = d.Port
 						}
 
-						if h.IdentityFile == nil || *h.IdentityFile == "" && *d.IdentityFile != "" {
+						if (h.IdentityFile == nil || *h.IdentityFile == "") && d.IdentityFile != nil {
 							h.IdentityFile = d.IdentityFile
 						}
 
-						if h.Password == nil || *h.Password == "" && *d.Password != "" {
+						if (h.Password == nil || *h.Password == "") && d.Password != nil {
 							h.Password = d.Password
 						}
 
@@ -619,6 +626,10 @@ func loadModules(p *Project) error {
 							if !slices.Contains(h.Tags, g) {
 								h.Tags = append(h.Tags, g)
 							}
+						}
+					} else {
+						if defaultsName != "default" {
+							return errors.Newf("host %s references undefined defaults %s", h.Host, h.Defaults)
 						}
 					}
 
@@ -706,6 +717,7 @@ func loadModules(p *Project) error {
 						IdentityFile: identityFile,
 						OS:           osInfo,
 						Meta:         *meta,
+						Tags:         h.Tags,
 					}
 
 					if _, ok := p.Hosts[h.Host]; !ok {

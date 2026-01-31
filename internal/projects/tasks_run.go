@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -95,6 +96,7 @@ func (p *Project) RunTask(params RunTasksParams) ([]*TaskResult, error) {
 		res.Task = m
 
 		hosts := []HostInfo{}
+		hostNames := []string{}
 		for _, hostId := range task.Hosts {
 			host, ok := p.Hosts[hostId]
 			if ok {
@@ -105,7 +107,10 @@ func (p *Project) RunTask(params RunTasksParams) ([]*TaskResult, error) {
 			for _, h := range p.Hosts {
 				for _, tas := range h.Tags {
 					if tas == hostId {
-						hosts = append(hosts, h)
+						if !slices.Contains(hostNames, h.Host) {
+							hosts = append(hosts, h)
+							hostNames = append(hostNames, h.Host)
+						}
 					}
 				}
 			}

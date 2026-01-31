@@ -60,18 +60,18 @@ func (hd *HostDefaults) UnmarshalYAML(value *yaml.Node) error {
 			}
 			password := valueNode.Value
 			hd.Password = &password
-		case "groups":
+		case "tags":
 			if valueNode.Kind != yaml.SequenceNode {
-				return errors.YamlErrorf(valueNode, "expected yaml sequence for 'groups' field")
+				return errors.YamlErrorf(valueNode, "expected yaml sequence for 'tags' field")
 			}
-			groups := make([]string, 0)
+			tags := make([]string, 0)
 			for _, item := range valueNode.Content {
 				if item.Kind != yaml.ScalarNode {
-					return errors.YamlErrorf(item, "expected yaml scalar for group item")
+					return errors.YamlErrorf(item, "expected yaml scalar for tag item")
 				}
-				groups = append(groups, item.Value)
+				tags = append(tags, item.Value)
 			}
-			hd.Tags = groups
+			hd.Tags = tags
 		case "meta":
 			if valueNode.Kind != yaml.MappingNode {
 				return errors.YamlErrorf(valueNode, "expected yaml mapping for 'meta' field")
@@ -107,5 +107,5 @@ func (hd *HostDefaults) UnmarshalYAML(value *yaml.Node) error {
 		}
 	}
 
-	return value.Decode(hd)
+	return nil
 }
