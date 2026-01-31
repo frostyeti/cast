@@ -2,6 +2,7 @@
 go = '1.25.5'
 bun = 'latest'
 deno = 'latest'
+dotnet = "10.0.102"
 
 [tasks.publish]
 run = """

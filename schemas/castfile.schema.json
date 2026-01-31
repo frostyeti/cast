@@ -335,6 +335,8 @@
                                 "pwsh",
                                 "python",
                                 "powershell",
+                                "dotnet",
+                                "go",
                                 "sh",
                                 "node",
                                 "bun",
@@ -426,6 +428,22 @@
                                 "type": "number"
                             }
                          }
+                    }, {
+                        "if": {
+                            "properties": {
+                                "uses": {
+                                    "type": "string",
+                                    "enum": ["bash", "pwsh", "python", "powershell", "sh", "node", "bun", "deno", "ruby", "shell"]
+                                }
+                            },
+                            "required": ["uses"]
+                        },
+                        "properties": {
+                            "script": {
+                                "type": "string",
+                                "description": "The path to the script file to run"
+                            }
+                        }
                     }],
                     "additionalProperties": {
                         "type": [

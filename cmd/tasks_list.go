@@ -111,21 +111,22 @@ var taskListCmd = &cobra.Command{
 				} else {
 					return errors.Newf("failed to access project file %s: %w", projectFile, err)
 				}
-			}
-
-			if info.IsDir() {
-				projectName = projectFile
-				projectFile = ""
-				tryFiles := []string{"castfile", ".castfile", "castfile.yaml", "castfile.yml"}
-				for _, f := range tryFiles {
-					fullPath := filepath.Join(projectName, f)
-					if _, err := os.Stat(fullPath); err == nil {
-						projectFile = fullPath
-						projectName = ""
-						break
+			} else {
+				if info != nil && info.IsDir() {
+					projectName = projectFile
+					projectFile = ""
+					tryFiles := []string{"castfile", ".castfile", "castfile.yaml", "castfile.yml"}
+					for _, f := range tryFiles {
+						fullPath := filepath.Join(projectName, f)
+						if _, err := os.Stat(fullPath); err == nil {
+							projectFile = fullPath
+							projectName = ""
+							break
+						}
 					}
 				}
 			}
+
 		}
 
 		if projectFile == "" {

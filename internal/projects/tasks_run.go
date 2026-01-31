@@ -234,11 +234,16 @@ func (p *Project) RunTask(params RunTasksParams) ([]*TaskResult, error) {
 		m.Uses = uses
 		m.Run = run
 		m.Env = e.ToMap()
+
 		m.With = task.With.ToMap()
 		m.Timeout = timeout
 		m.Hosts = hosts
 		m.Args = params.Args
 		m.Cwd = ""
+		m.Template = ""
+		if task.Template != nil {
+			m.Template = *task.Template
+		}
 
 		scope := p.Scope.Clone()
 		scope.Set("env", m.Env)

@@ -50,6 +50,7 @@ func (m *Module) UnmarshalYAML(node *yaml.Node) error {
 				return errors.NewYamlError(valueNode, "module name must be a scalar.")
 			}
 			m.Name = valueNode.Value
+
 		case "version":
 			if valueNode.Kind != yaml.ScalarNode {
 				return errors.NewYamlError(valueNode, "module version must be a scalar.")

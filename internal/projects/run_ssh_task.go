@@ -7,11 +7,13 @@ import (
 	"io"
 	"net"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
 
 	"github.com/frostyeti/cast/internal/errors"
+	"github.com/frostyeti/cast/internal/paths"
 	goph "github.com/melbahja/goph"
 	"golang.org/x/crypto/ssh"
 )
@@ -78,6 +80,30 @@ func runSshTask(ctx TaskContext) *TaskResult {
 	targets := ctx.Task.Hosts
 	if len(targets) == 0 {
 		return res.Fail(errors.New("No targets found for SSH task"))
+	}
+
+	scriptValue, ok := ctx.Task.With["script"]
+	script, isString := scriptValue.(string)
+	if ok && isString {
+		cwd := ctx.Task.Cwd
+		if !filepath.IsAbs(script) {
+			script1, err := paths.ResolvePath(cwd, script)
+			if err != nil {
+				return res.Fail(errors.New("Failed to resolve script path for SSH task: " + err.Error()))
+			}
+			script = script1
+		}
+
+		if _, err := os.Stat(script); os.IsNotExist(err) {
+			return res.Fail(errors.New("Script file not found for SSH task: " + script))
+		}
+
+		scriptContent, err := os.ReadFile(script)
+		if err != nil {
+			return res.Fail(errors.New("Failed to read script file for SSH task: " + err.Error()))
+		}
+
+		ctx.Task.Run = string(scriptContent)
 	}
 
 	maxParallel := 5

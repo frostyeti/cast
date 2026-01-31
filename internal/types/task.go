@@ -153,7 +153,7 @@ func (t *Task) UnmarshalYAML(value *yaml.Node) error {
 				return errors.NewYamlError(valueNode, "expected yaml scalar for 'run' field")
 			}
 			t.Run = &valueNode.Value
-		case "uses":
+		case "uses", "use":
 			if valueNode.Kind != yaml.ScalarNode {
 				return errors.NewYamlError(valueNode, "expected yaml scalar for 'uses' field")
 			}
@@ -182,7 +182,7 @@ func (t *Task) UnmarshalYAML(value *yaml.Node) error {
 				t.Needs = append(t.Needs, need)
 			}
 		case "with", "input", "inputs":
-			with := &With{}
+			with := NewWith()
 			if err := valueNode.Decode(with); err != nil {
 				return err
 			}

@@ -325,6 +325,22 @@
                                 "type": "number"
                             }
                         }
+                    }, {
+                        "if": {
+                            "properties": {
+                                "uses": {
+                                    "type": "string",
+                                    "enum": ["bash", "sh", "pwsh", "powershell", "python", "node", "bun", "deno", "ruby", "shell"]
+                                }
+                            },
+                            "required": ["uses"]
+                        },
+                        "properties": {
+                            "script": {
+                                "type": "string",
+                                "description": "The path to the script file to execute"
+                            }
+                        }
                     }],
                     "additionalProperties": {
                         "type": [

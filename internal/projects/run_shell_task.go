@@ -2,9 +2,12 @@ package projects
 
 import (
 	"bufio"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
+	"github.com/frostyeti/cast/internal/paths"
 	"github.com/frostyeti/cast/internal/scriptx/bash"
 	"github.com/frostyeti/cast/internal/scriptx/bun"
 	"github.com/frostyeti/cast/internal/scriptx/deno"
@@ -27,19 +30,38 @@ import (
 
 func runShell(ctx TaskContext) *TaskResult {
 	res := NewTaskResult()
-	if ctx.Task.Uses == "" {
-		shell, ok := ctx.Task.Env["RUN_DEFAULT_SHELL"]
-		if ok && shell != "" {
-			ctx.Task.Uses = shell
-		} else {
-			shell := "shell"
-			ctx.Task.Uses = shell
+
+	cwd := ctx.Task.Cwd
+	scriptValue, ok := ctx.Task.With["script"]
+	script, isString := scriptValue.(string)
+	if ok && isString && script != "" {
+		if !filepath.IsAbs(script) {
+			script1, err := paths.ResolvePath(cwd, script)
+			if err != nil {
+				return res.Fail(errors.New("Failed to resolve script path for shell task: " + err.Error()))
+			}
+			script = script1
 		}
+
+		if _, err := os.Stat(script); os.IsNotExist(err) {
+			return res.Fail(errors.New("Script file not found for shell task: " + script))
+		}
+
+		bytes, err := os.ReadFile(script)
+		if err != nil {
+			return res.Fail(errors.New("Failed to read script file for shell task: " + err.Error()))
+		}
+		ctx.Task.Run = string(bytes)
 	}
 
 	var cmd *exec.Cmd
 
 	run := ctx.Task.Run
+
+	if run == "" {
+		return res.Fail(errors.New("No script provided for shell task"))
+	}
+
 	splat := ctx.Task.Args
 
 	switch ctx.Task.Uses {

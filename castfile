@@ -52,6 +52,11 @@ tasks:
       EXAMPLE_VAR: "example_value"
     hooks: true
 
+  hello:
+    uses: bash
+    with:
+      script: "./hello.sh"
+
   ssh:
     uses: ssh
     run: |
@@ -63,3 +68,19 @@ tasks:
     uses: deno
     run: "console.log('Hello from Deno task!');"
     timeout: "10m"
+
+
+  dotnet:
+    uses: dotnet
+    run: "Console.WriteLine(\"Hello from .NET task!\");"
+
+  go:
+    uses: go
+    run: |
+      package main
+
+      import "fmt"
+
+      func main() {
+          fmt.Println("Hello from Go task!")
+      }

@@ -455,24 +455,28 @@ func (p *Project) Init() error {
 				task.Desc = baseTask.Desc
 			}
 
-			if task.Uses == nil && baseTask.Uses != nil {
+			if (task.Uses == nil || *task.Uses == "") && baseTask.Uses != nil {
 				task.Uses = baseTask.Uses
 			}
 
-			if task.Cwd == nil && baseTask.Cwd != nil {
+			if (task.Cwd == nil || *task.Cwd == "") && baseTask.Cwd != nil {
 				task.Cwd = baseTask.Cwd
 			}
 
-			if task.Run == nil && baseTask.Run != nil {
+			if (task.Run == nil || *task.Run == "") && baseTask.Run != nil {
 				task.Run = baseTask.Run
 			}
 
-			if task.Help == nil && baseTask.Help != nil {
+			if (task.Help == nil || *task.Help == "") && baseTask.Help != nil {
 				task.Help = baseTask.Help
 			}
 
-			if task.Timeout == nil && baseTask.Timeout != nil {
+			if (task.Timeout == nil || *task.Timeout == "") && baseTask.Timeout != nil {
 				task.Timeout = baseTask.Timeout
+			}
+
+			if (task.Template == nil || *task.Template == "") && baseTask.Template != nil {
+				task.Template = baseTask.Template
 			}
 
 			if len(task.Needs) == 0 && len(baseTask.Needs) > 0 {
@@ -498,7 +502,7 @@ func (p *Project) Init() error {
 				task.Hosts = hosts
 			}
 
-			if task.Force == nil && baseTask.Force != nil {
+			if (task.Force == nil || *task.Force == "") && baseTask.Force != nil {
 				task.Force = baseTask.Force
 			}
 
@@ -541,6 +545,8 @@ func (p *Project) Init() error {
 				meta.Set(k, v)
 			}
 			task.With = meta
+
+			p.Tasks.Set(&task)
 		}
 	}
 
@@ -728,43 +734,14 @@ func loadModules(p *Project) error {
 
 			ns := mod.Namespace
 
-			if mod.Tasks != nil && mod.Tasks.Len() > 0 && len(mod.TaskNames) == 0 {
+			if mod.Tasks != nil && mod.Tasks.Len() > 0 {
 				mod.TaskNames = mod.Tasks.Keys()
-			}
-
-			if len(mod.TaskNames) > 0 {
 				for _, taskName := range mod.TaskNames {
 					task, ok := mod.Tasks.Get(taskName)
 					if !ok {
 						return errors.Newf("module %s does not have task %s", path, taskName)
 					}
 
-					name := task.Name
-					if ns != "" {
-						name = ns + ":" + name
-						task.Name = name
-						if task.Id != "" {
-							task.Id = ns + "-" + task.Id
-						}
-					}
-
-					if task.Id == "" {
-						task.Id = id.Convert(name)
-					}
-
-					task.Env.Set("CAST_FILE", mod.File)
-					task.Env.Set("CAST_DIR", mod.Dir)
-					task.Env.Set("CAST_PARENT_FILE", p.File)
-					task.Env.Set("CAST_PARENT_DIR", p.Dir)
-					task.Env.Set("CAST_MODULE_ID", mod.Id)
-					task.Env.Set("CAST_MODULE_NAME", mod.Name)
-					task.Env.Set("CAST_MODULE_VERSION", mod.Version)
-					task.Env.Set("CAST_MODULE_DESCRIPTION", mod.Desc)
-					p.Tasks.Set(&task)
-				}
-			} else {
-
-				for _, task := range mod.Tasks.Values() {
 					name := task.Name
 					if ns != "" {
 						name = ns + ":" + name
@@ -1134,7 +1111,6 @@ func loadDotEnvFiles(dotenvSection types.DotEnvs, e *types.Env, contextName stri
 
 	for _, file := range dotenvFiles {
 		absFile, err := paths.ResolvePath(basePath, file)
-		println("dotenv file", absFile)
 		if err != nil {
 			return nil, err
 		}

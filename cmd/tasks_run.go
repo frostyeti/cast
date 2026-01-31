@@ -3,6 +3,7 @@ package cmd
 import (
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/frostyeti/cast/internal/errors"
 	"github.com/frostyeti/cast/internal/projects"
@@ -55,6 +56,7 @@ var tasksRunCmd = &cobra.Command{
 		remainingArgs := []string{}
 		size := len(args)
 		inRemaining := false
+		inTargets := false
 		for i := 0; i < size; i++ {
 			n := args[i]
 			if n == "--" {
@@ -62,8 +64,14 @@ var tasksRunCmd = &cobra.Command{
 				continue
 			}
 
+			if inTargets && n[0] == '-' {
+				remainingArgs = append(remainingArgs, n)
+				inRemaining = true
+				continue
+			}
+
 			if inRemaining {
-				remainingArgs = append(remainingArgs, args[i])
+				remainingArgs = append(remainingArgs, n)
 				continue
 			}
 
@@ -78,8 +86,9 @@ var tasksRunCmd = &cobra.Command{
 				continue
 			}
 
+			inTargets = true
+
 			targets = append(targets, n)
-			inRemaining = true
 		}
 
 		if len(targets) == 0 {
@@ -94,12 +103,32 @@ var tasksRunCmd = &cobra.Command{
 
 		projectFile, _ = flags.GetString("project")
 		contextName, _ = flags.GetString("context")
+		projectName := ""
+
+		remove := []int{}
+		for i, target := range targets {
+			if strings.HasPrefix(target, "@") {
+				projectFile = target[1:]
+				hashIndex := strings.Index(projectFile, ":")
+				if hashIndex != -1 {
+					contextName = projectFile[hashIndex+1:]
+					projectFile = projectFile[:hashIndex]
+				}
+				remove = append(remove, i)
+				continue
+			}
+		}
+
+		for i := len(remove) - 1; i >= 0; i-- {
+			index := remove[i]
+			if index >= 0 && index < len(targets) {
+				targets = append(targets[:index], targets[index+1:]...)
+			}
+		}
 
 		if contextName == "" {
 			contextName = "default"
 		}
-
-		projectName := ""
 
 		if projectFile != "" {
 			info, err := os.Stat(projectFile)
