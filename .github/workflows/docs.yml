@@ -21,11 +21,11 @@ jobs:
           bun-version: latest
 
       - name: Install Dependencies
-        working-directory: docs
+        working-directory: docs/site
         run: bun install
 
       - name: Build Docs
-        working-directory: docs
+        working-directory: docs/site
         run: bun run build
 
       - name: Deploy to Cloudflare Pages
@@ -34,5 +34,5 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           projectName: 'cast-docs'
-          directory: 'docs/dist'
+          directory: 'docs/site/dist'
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}

@@ -29,10 +29,6 @@ export default defineConfig({
 						{ label: 'CLI Reference', slug: 'reference/cli' },
 					],
 				},
-				{
-					label: 'Issues',
-					autogenerate: { directory: 'issues' },
-				},
 			],
 		}),
 	],
