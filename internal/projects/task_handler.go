@@ -32,4 +32,5 @@ func init() {
 	RegisterTaskHandler("bun", runShell)
 	RegisterTaskHandler("python", runShell)
 	RegisterTaskHandler("ruby", runShell)
+	RegisterTaskHandler("docker", runDockerTask)
 }

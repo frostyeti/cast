@@ -331,7 +331,7 @@
                         {
                             "type": "string",
                             "enum": [
-                                "bash",
+                                "docker", "bash",
                                 "pwsh",
                                 "python",
                                 "powershell",
@@ -433,7 +433,7 @@
                             "properties": {
                                 "uses": {
                                     "type": "string",
-                                    "enum": ["bash", "pwsh", "python", "powershell", "sh", "node", "bun", "deno", "ruby", "shell"]
+                                    "enum": ["docker", "bash", "pwsh", "python", "powershell", "sh", "node", "bun", "deno", "ruby", "shell"]
                                 }
                             },
                             "required": ["uses"]
