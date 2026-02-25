@@ -1,14 +1,14 @@
 ---
-title: "GitHub Actions Style Remote Tasks"
+title: "Remote Git Cast Tasks"
 type: feature
 tags: ["feature", "remote-tasks"]
 ---
 
-# GitHub Actions Style Remote Tasks (`casttask.yaml`)
+# Remote Git Cast Tasks (`casttask.yaml`)
 
 ## Overview
 
-Currently, remote tasks resolve to a Git repository and execute a root `.ts` or `.js` file directly. To enable more powerful, declarative, and reusable tasks, Cast should support a GitHub Actions-style remote task execution model driven by a `casttask.yaml` definition file.
+Currently, remote tasks resolve to a Git repository and execute a root `.ts` or `.js` file directly. To enable more powerful, declarative, and reusable tasks, Cast should support a remote task execution model driven by a `casttask.yaml` definition file.
 
 This enhancement will allow remote repositories to define typed task inputs, execution types (Docker, Deno, Composite), and support proper Semantic Versioning for tags and sub-directory targeting.
 
@@ -33,7 +33,7 @@ This enhancement will allow remote repositories to define typed task inputs, exe
 ### 4. Input Validation and Environment Injection
 - **Definition:** The `casttask.yaml` should define an `inputs:` block specifying expected parameters (with optional types or defaults).
 - **Validation:** When `cast` runs the task, it must evaluate the `with:` arguments from the caller's `castfile.yaml` at runtime, ensuring all required inputs are met and validating them against the `casttask.yaml` definition.
-- **Injection:** Transform the validated parameters into environment variables prefixed with `INPUT_` (e.g., `with: { hello: "world" }` becomes `INPUT_HELLO="world"`) and inject them into the execution context (Deno runtime, Docker container, or Composite step environments) mirroring GitHub Actions behavior.
+- **Injection:** Transform the validated parameters into environment variables prefixed with `INPUT_` (e.g., `with: { hello: "world" }` becomes `INPUT_HELLO="world"`) and inject them into the execution context (Deno runtime, Docker container, or Composite step environments) mirroring standard CI/CD environment injection behavior.
 
 ## Example Usage
 
@@ -41,15 +41,15 @@ This enhancement will allow remote repositories to define typed task inputs, exe
 ```yaml
 tasks:
   lint:
-    uses: "github.com/my-org/cast-actions@v2/linter"
+    uses: "github.com/my-org/cast-tasks@v2/linter"
     with:
       strict: "true"
       target_dir: "src/"
 ```
 
-**Remote Definition (`cast-actions/linter/casttask.yaml`):**
+**Remote Definition (`cast-tasks/linter/casttask.yaml`):**
 ```yaml
-name: "Linter Action"
+name: "Linter Task"
 description: "Lints the codebase"
 inputs:
   strict:
