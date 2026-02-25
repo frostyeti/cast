@@ -78,12 +78,16 @@ func (p *Project) UnmarshalYAML(node *yaml.Node) error {
 				return errors.NewYamlError(valueNode, "failed to decode project on: "+err.Error())
 			}
 
-		case "import", "imports":
-			p.Imports = &Imports{}
-			err := valueNode.Decode(p.Imports)
-			if err != nil {
-				return errors.NewYamlError(valueNode, "failed to decode project imports: "+err.Error())
+		case "import", "imports", "modules":
+			if p.Imports == nil {
+				p.Imports = &Imports{}
 			}
+			tempImports := &Imports{}
+			err := valueNode.Decode(tempImports)
+			if err != nil {
+				return errors.NewYamlError(valueNode, "failed to decode project imports/modules: "+err.Error())
+			}
+			*p.Imports = append(*p.Imports, *tempImports...)
 		case "env":
 			p.Env = NewEnv()
 			err := valueNode.Decode(p.Env)

@@ -58,7 +58,10 @@
             },
             "description": "A list of Cast modules to import. If the path is not relative, it will be treated as a module registry reference."
         },
-
+        "modules": {
+            "$ref": "#/properties/imports",
+            "description": "A list of Cast modules to import (alias for imports)."
+        },
         "config": {
             "type": "object",
             "properties": {

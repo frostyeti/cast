@@ -131,3 +131,44 @@ tasks:
 		}
 	}
 }
+
+func TestE2E_RemoteModule(t *testing.T) {
+	t.Log("Building cast binary...")
+	tmpDir := t.TempDir()
+	binPath := filepath.Join(tmpDir, "cast")
+
+	buildCmd := exec.Command("go", "build", "-o", binPath, "../../main.go")
+	if output, err := buildCmd.CombinedOutput(); err != nil {
+		t.Fatalf("failed to build cast binary: %v\n%s", err, string(output))
+	}
+
+	t.Log("Creating temp castfile...")
+	yamlFile := filepath.Join(tmpDir, "castfile")
+	// Since we don't have a reliable public cast module repository, we can just point to
+	// a local git repository, or just github.com/some/cast-module if there was one.
+	// For testing purpose we'll just test if the parser throws error or attempts to clone.
+	// We'll point to a dummy git repo that does not exist to ensure it hits the git path.
+	yamlData := `
+name: Remote Module Test
+modules:
+  - from: "github.com/frostyeti/does-not-exist@main"
+    ns: "test"
+`
+	if err := os.WriteFile(yamlFile, []byte(yamlData), 0644); err != nil {
+		t.Fatalf("failed to write castfile: %v", err)
+	}
+
+	t.Log("Running cast binary...")
+	runCmd := exec.Command("timeout", "10", binPath, "test:dummy")
+	runCmd.Dir = tmpDir
+	output, err := runCmd.CombinedOutput()
+	
+	// We expect it to fail cloning
+	if err == nil {
+		t.Errorf("Expected failure for non-existent git repo, but got success")
+	}
+
+	if !strings.Contains(string(output), "failed to fetch remote module") && !strings.Contains(string(output), "Authentication failed") && !strings.Contains(string(output), "Repository not found") {
+		t.Errorf("Expected git clone failure message, got: %s", string(output))
+	}
+}

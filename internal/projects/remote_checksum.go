@@ -26,7 +26,7 @@ func VerifyChecksumAndRefresh(p *Project) bool {
 
 	castDir := filepath.Join(p.Dir, ".cast")
 	stateFile := filepath.Join(castDir, "state.json")
-	
+
 	type State struct {
 		Checksum string `json:"checksum"`
 	}
@@ -45,6 +45,8 @@ func VerifyChecksumAndRefresh(p *Project) bool {
 	if !matches {
 		// Clear local cache for tasks if checksum doesn't match
 		os.RemoveAll(filepath.Join(castDir, "tasks"))
+		// Clear local cache for modules if checksum doesn't match
+		os.RemoveAll(filepath.Join(castDir, "modules"))
 
 		// Write new state
 		os.MkdirAll(castDir, 0755)

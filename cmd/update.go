@@ -56,9 +56,15 @@ var updateCmd = &cobra.Command{
 		}
 
 		tasksCache := filepath.Join(filepath.Dir(projectFile), ".cast", "tasks")
+		modulesCache := filepath.Join(filepath.Dir(projectFile), ".cast", "modules")
 		fmt.Printf("Clearing tasks cache at %s\n", tasksCache)
 
 		if err := os.RemoveAll(tasksCache); err != nil {
+			return err
+		}
+
+		fmt.Printf("Clearing modules cache at %s\n", modulesCache)
+		if err := os.RemoveAll(modulesCache); err != nil {
 			return err
 		}
 

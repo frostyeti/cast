@@ -10,6 +10,7 @@ import (
 	"github.com/frostyeti/cast/internal/errors"
 	"github.com/frostyeti/cast/internal/eval"
 	"github.com/frostyeti/cast/internal/id"
+	"github.com/frostyeti/cast/internal/modules"
 	"github.com/frostyeti/cast/internal/paths"
 	"github.com/frostyeti/cast/internal/types"
 	"github.com/frostyeti/go/dotenv"
@@ -789,6 +790,8 @@ func resolveModules(p *Project, imports *types.Imports) error {
 		return nil
 	}
 
+	VerifyChecksumAndRefresh(p)
+
 	dataDir, err := paths.UserDataDir()
 	if err != nil {
 		return err
@@ -805,7 +808,29 @@ func resolveModules(p *Project, imports *types.Imports) error {
 
 	for _, importMod := range *imports {
 		path := importMod.From
-		if !filepath.IsAbs(path) {
+		if strings.HasPrefix(path, "github.com/") || strings.HasPrefix(path, "http://") || strings.HasPrefix(path, "https://") || strings.HasPrefix(path, "git@") {
+			fetchedPath, err := modules.FetchModule(p.Dir, path)
+			if err != nil {
+				return errors.Newf("failed to fetch remote module %s: %v", path, err)
+			}
+			path = fetchedPath
+
+			// Some modules might have cast.module.yaml instead of just being a directory
+			// Check if it's a directory
+			stat, err := os.Stat(path)
+			if err == nil && stat.IsDir() {
+				// Look for cast.module.yaml or castfile.yaml
+				if _, err := os.Stat(filepath.Join(path, "cast.module.yaml")); err == nil {
+					path = filepath.Join(path, "cast.module.yaml")
+				} else if _, err := os.Stat(filepath.Join(path, "cast.module.yml")); err == nil {
+					path = filepath.Join(path, "cast.module.yml")
+				} else if _, err := os.Stat(filepath.Join(path, "castfile.yaml")); err == nil {
+					path = filepath.Join(path, "castfile.yaml")
+				} else if _, err := os.Stat(filepath.Join(path, "castfile.yml")); err == nil {
+					path = filepath.Join(path, "castfile.yml")
+				}
+			}
+		} else if !filepath.IsAbs(path) {
 			if path[0] == '.' {
 				absPath, err := filepath.Abs(filepath.Join(p.Dir, path))
 				if err != nil {
