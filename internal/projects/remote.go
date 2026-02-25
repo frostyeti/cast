@@ -86,14 +86,17 @@ func FetchRemoteTask(p *Project, uses string, trustedSources []string) (string, 
 		}
 
 		entryFile := filepath.Join(taskDir, subPath)
-		// Check if it's a directory, if so look for mod.ts or main.ts
+		// Check if it's a directory, if so look for standard entrypoints
 		stat, err := os.Stat(entryFile)
 		if err == nil && stat.IsDir() {
-			if _, err := os.Stat(filepath.Join(entryFile, "mod.ts")); err == nil {
-				return filepath.Join(entryFile, "mod.ts"), nil
+			entrypoints := []string{
+				"mod.ts", "main.ts", "index.ts",
+				"mod.js", "main.js", "index.js",
 			}
-			if _, err := os.Stat(filepath.Join(entryFile, "main.ts")); err == nil {
-				return filepath.Join(entryFile, "main.ts"), nil
+			for _, ep := range entrypoints {
+				if _, err := os.Stat(filepath.Join(entryFile, ep)); err == nil {
+					return filepath.Join(entryFile, ep), nil
+				}
 			}
 		}
 		return entryFile, nil
