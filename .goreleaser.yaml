@@ -1,0 +1,75 @@
+before:
+  hooks:
+    - go mod tidy
+    - go run main.go --version
+
+builds:
+  - id: cast
+    main: ./main.go
+    binary: cast
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - format: tar.gz
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+    format_overrides:
+      - goos: windows
+        format: zip
+
+nfpms:
+  - id: packages
+    vendor: frostyeti
+    homepage: https://github.com/frostyeti/cast
+    maintainer: frostyeti
+    description: A powerful task runner and automation tool
+    license: MIT
+    formats:
+      - deb
+      - rpm
+      - apk
+      - archlinux
+    bindir: /usr/bin
+
+brews:
+  - repository:
+      owner: frostyeti
+      name: homebrew-tap
+      token: "{{ .Env.GITHUB_TOKEN }}"
+    directory: Formula
+    homepage: "https://github.com/frostyeti/cast"
+    description: "A powerful task runner and automation tool"
+    license: "MIT"
+    test: |
+      system "#{bin}/cast --version"
+
+# Docker builds can be enabled later
+# dockers:
+#   - image_templates:
+#       - "frostyeti/cast:{{ .Tag }}"
+#       - "frostyeti/cast:latest"
+#     build_flag_templates:
+#       - "--pull"
+#       - "--label=org.opencontainers.image.created={{.Date}}"
+#       - "--label=org.opencontainers.image.title={{.ProjectName}}"
+#       - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+#       - "--label=org.opencontainers.image.version={{.Version}}"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'

@@ -159,17 +159,56 @@ var tasksRunCmd = &cobra.Command{
 		}
 
 		if projectFile == "" {
-			tryFiles := []string{"castfile", ".castfile", "castfile.yaml", "castfile.yml"}
-			for _, f := range tryFiles {
-				if _, err := os.Stat(f); err == nil {
-					projectFile = f
-					break
+			cwd, err := os.Getwd()
+			if err == nil {
+				currentDir := cwd
+				var foundCastfiles []string
+				for currentDir != "/" && currentDir != "" {
+					tryFiles := []string{"castfile", ".castfile", "castfile.yaml", "castfile.yml"}
+					for _, f := range tryFiles {
+						fullPath := filepath.Join(currentDir, f)
+						if _, err := os.Stat(fullPath); err == nil {
+							foundCastfiles = append(foundCastfiles, fullPath)
+							break
+						}
+					}
+					nextDir := filepath.Dir(currentDir)
+					if nextDir == currentDir {
+						break
+					}
+					currentDir = nextDir
+				}
+
+				if len(foundCastfiles) > 0 {
+					// Check from the top-most castfile to see if cwd is in its workspace
+					for i := len(foundCastfiles) - 1; i >= 0; i-- {
+						rootProjFile := foundCastfiles[i]
+						tmpProj := &projects.Project{}
+						if err := tmpProj.LoadFromYaml(rootProjFile); err == nil {
+							tmpProj.InitWorkspace()
+							for alias, wp := range tmpProj.Workspace {
+								absWpDir := filepath.Dir(wp.Path)
+								if absWpDir == cwd {
+									projectFile = rootProjFile
+									projectName = alias
+									break
+								}
+							}
+						}
+						if projectFile != "" {
+							break
+						}
+					}
+
+					if projectFile == "" {
+						projectFile = foundCastfiles[0]
+					}
 				}
 			}
 		}
 
 		if projectFile == "" {
-			return errors.New("no castfile found in current directory")
+			return errors.New("no castfile found in current or parent directories")
 		}
 
 		project := &projects.Project{}

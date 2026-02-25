@@ -201,6 +201,13 @@ func (p *Project) Init() error {
 	p.imported = make(map[string]types.Module)
 
 	targetDir := p.Dir
+	if !filepath.IsAbs(targetDir) {
+		absDir, err := filepath.Abs(targetDir)
+		if err == nil {
+			targetDir = absDir
+		}
+	}
+
 	if p.Schema.Workspace == nil {
 		for targetDir != "/" && targetDir != "" {
 			tryDirs := []string{
@@ -229,7 +236,11 @@ func (p *Project) Init() error {
 				break
 			}
 
-			targetDir = filepath.Dir(targetDir)
+			nextDir := filepath.Dir(targetDir)
+			if nextDir == targetDir {
+				break
+			}
+			targetDir = nextDir
 		}
 
 		if p.CastDir == "" {
