@@ -403,12 +403,16 @@ func (p *Project) RunTask(params RunTasksParams) ([]*TaskResult, error) {
 
 		handler, ok := GetTaskHandler(uses)
 		if !ok {
-			err := errors.Newf("unable to find task handler for %s using %s", task.Name, uses)
-			os.Stdout.WriteString("\n\x1b[1m" + name + "\x1b[22m \x1b[31m(failed)\x1b[0m\n")
-			os.Stdout.WriteString(fmt.Sprintf("\x1b[31m%v\x1b[0m\n", err))
-			res.Fail(err)
-			results = append(results, res)
-			continue
+			if IsRemoteTask(uses) {
+				handler = runDenoTask
+			} else {
+				err := errors.Newf("unable to find task handler for %s using %s", task.Name, uses)
+				os.Stdout.WriteString("\n\x1b[1m" + name + "\x1b[22m \x1b[31m(failed)\x1b[0m\n")
+				os.Stdout.WriteString(fmt.Sprintf("\x1b[31m%v\x1b[0m\n", err))
+				res.Fail(err)
+				results = append(results, res)
+				continue
+			}
 		}
 
 		var taskCtx context.Context
@@ -420,6 +424,7 @@ func (p *Project) RunTask(params RunTasksParams) ([]*TaskResult, error) {
 		}
 
 		ctx := &TaskContext{
+			Project:     p,
 			Context:     taskCtx,
 			Schema:      &task,
 			Task:        m,

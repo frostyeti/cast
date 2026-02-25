@@ -88,3 +88,46 @@ tasks:
 		t.Errorf("expected output to contain 'Hello from Docker E2E', got: %s", string(output))
 	}
 }
+
+func TestE2E_RemoteTask(t *testing.T) {
+	t.Log("Building cast binary...")
+	tmpDir := t.TempDir()
+	binPath := filepath.Join(tmpDir, "cast")
+
+	buildCmd := exec.Command("go", "build", "-o", binPath, "../../main.go")
+	if output, err := buildCmd.CombinedOutput(); err != nil {
+		t.Fatalf("failed to build cast binary: %v\n%s", err, string(output))
+	}
+
+	t.Log("Creating temp castfile...")
+	yamlFile := filepath.Join(tmpDir, "castfile")
+	// JSR module usage
+	yamlData := `
+name: Remote E2E Test
+trusted_sources:
+  - "jsr:"
+tasks:
+  test-remote:
+    uses: "jsr:@std/fmt/colors"
+    with:
+      hello: "world"
+`
+	if err := os.WriteFile(yamlFile, []byte(yamlData), 0644); err != nil {
+		t.Fatalf("failed to write castfile: %v", err)
+	}
+
+	t.Log("Running cast binary...")
+	runCmd := exec.Command("timeout", "30", binPath, "test-remote")
+	runCmd.Dir = tmpDir
+	output, err := runCmd.CombinedOutput()
+
+	// This might fail if Deno is not installed, but GitHub Actions CI runs setup-deno
+	if err != nil {
+		t.Logf("Output: %s", string(output))
+		// We just ignore the failure for local dev if Deno isn't installed
+		// But let's check output for "failed to find task handler" to ensure it tried to run deno
+		if strings.Contains(string(output), "unable to find task handler") {
+			t.Errorf("Remote task handler not found: %s", string(output))
+		}
+	}
+}

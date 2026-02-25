@@ -9,23 +9,24 @@ import (
 )
 
 type Project struct {
-	Id        string           `yaml:"id,omitempty" json:"id,omitempty"`
-	Name      string           `yaml:"name,omitempty" json:"name,omitempty"`
-	Version   string           `yaml:"version,omitempty" json:"version,omitempty"`
-	Desc      string           `yaml:"description,omitempty" json:"description,omitempty"`
-	Imports   *Imports         `yaml:"imports,omitempty" json:"imports,omitempty"`
-	Env       *Env             `yaml:"env,omitempty" json:"env,omitempty"`
-	DotEnv    *DotEnvs         `yaml:"dotenv,omitempty" json:"dotenv,omitempty"`
-	Paths     *Paths           `yaml:"paths,omitempty" json:"paths,omitempty"`
-	Defaults  *ProjectDefaults `yaml:"defaults,omitempty" json:"defaults,omitempty"`
-	Config    *ProjectConfig
-	On        *On        `yaml:"on,omitempty" json:"on,omitempty"`
-	Meta      *Meta      `yaml:"meta,omitempty" json:"meta,omitempty"`
-	Workspace *Workspace `yaml:"workspace,omitempty" json:"workspace,omitempty"`
-	Tasks     *TaskMap   `yaml:"tasks,omitempty" json:"tasks,omitempty"`
-	Inventory *Inventory `yaml:"inventory,omitempty" json:"inventory,omitempty"`
-	Modules   []Module   `yaml:"-" json:"-"`
-	File      string     `yaml:"-" json:"-"`
+	Id             string           `yaml:"id,omitempty" json:"id,omitempty"`
+	Name           string           `yaml:"name,omitempty" json:"name,omitempty"`
+	Version        string           `yaml:"version,omitempty" json:"version,omitempty"`
+	Desc           string           `yaml:"description,omitempty" json:"description,omitempty"`
+	Imports        *Imports         `yaml:"imports,omitempty" json:"imports,omitempty"`
+	Env            *Env             `yaml:"env,omitempty" json:"env,omitempty"`
+	DotEnv         *DotEnvs         `yaml:"dotenv,omitempty" json:"dotenv,omitempty"`
+	Paths          *Paths           `yaml:"paths,omitempty" json:"paths,omitempty"`
+	Defaults       *ProjectDefaults `yaml:"defaults,omitempty" json:"defaults,omitempty"`
+	Config         *ProjectConfig
+	On             *On        `yaml:"on,omitempty" json:"on,omitempty"`
+	Meta           *Meta      `yaml:"meta,omitempty" json:"meta,omitempty"`
+	Workspace      *Workspace `yaml:"workspace,omitempty" json:"workspace,omitempty"`
+	Tasks          *TaskMap   `yaml:"tasks,omitempty" json:"tasks,omitempty"`
+	Inventory      *Inventory `yaml:"inventory,omitempty" json:"inventory,omitempty"`
+	TrustedSources []string   `yaml:"trusted_sources,omitempty" json:"trusted_sources,omitempty"`
+	Modules        []Module   `yaml:"-" json:"-"`
+	File           string     `yaml:"-" json:"-"`
 }
 
 func NewProject() *Project {
@@ -131,7 +132,13 @@ func (p *Project) UnmarshalYAML(node *yaml.Node) error {
 			if err != nil {
 				return errors.NewYamlError(valueNode, "failed to decode project inventory: "+err.Error())
 			}
-
+		case "trusted_sources", "trustedSources", "trusted-sources":
+			if valueNode.Kind != yaml.SequenceNode {
+				return errors.NewYamlError(valueNode, "project trusted_sources must be a sequence.")
+			}
+			for _, item := range valueNode.Content {
+				p.TrustedSources = append(p.TrustedSources, item.Value)
+			}
 		default:
 			continue
 		}

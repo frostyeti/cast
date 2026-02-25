@@ -7,6 +7,7 @@ import (
 )
 
 type TaskContext struct {
+	Project     *Project
 	Schema      *types.Task
 	Task        *Task
 	Context     context.Context

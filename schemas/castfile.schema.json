@@ -23,6 +23,13 @@
             "type": "string",
             "description": "A brief description of the project"
         },
+        "trusted_sources": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "description": "Array of trusted source domains for remote tasks and modules"
+        },
         "imports": {
             "type": "array",
             "items": {
