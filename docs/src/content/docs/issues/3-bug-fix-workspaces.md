@@ -1,5 +1,6 @@
 ---
 tags: ["bug"]
+title: "3-bug-fix-workspaces"
 type: bug
 ---
 

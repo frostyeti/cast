@@ -1,4 +1,5 @@
 ---
+title: "8-create-docs"
 type: chore
 tags: ["chore"]
 ---

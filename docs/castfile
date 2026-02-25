@@ -1,7 +1,0 @@
-
-
-tasks:
-  echo:
-    uses: shell
-    run: |
-      echo "This is a simple echo task."

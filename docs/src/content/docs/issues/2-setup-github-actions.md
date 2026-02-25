@@ -1,5 +1,6 @@
 ---
 tags: ["chore"]
+title: "2-setup-github-actions"
 type: chore
 ---
 

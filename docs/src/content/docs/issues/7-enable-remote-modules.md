@@ -1,4 +1,5 @@
 ---
+title: "7-enable-remote-modules"
 type: epic
 tags: ["epic"]
 ---
