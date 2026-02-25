@@ -16,7 +16,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23' # Update to your target Go version
+          go-version: '1.26'
 
       - name: Setup environment
         run: |
