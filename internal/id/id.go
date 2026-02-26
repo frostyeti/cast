@@ -1,5 +1,7 @@
 package id
 
+import "strings"
+
 var idCache = map[string]string{}
 
 func IsValidAlias(alias string) bool {
@@ -85,6 +87,36 @@ func Slugify(id string) string {
 	}
 
 	return string(builder)
+}
+
+func Sanitize(input string) string {
+	var sb strings.Builder
+	for _, r := range input {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') {
+			sb.WriteRune(r)
+		} else {
+			sb.WriteRune('-')
+		}
+	}
+
+	s := sb.String()
+	s = strings.Trim(s, "-")
+
+	var collapsed strings.Builder
+	lastHyphen := false
+	for _, r := range s {
+		if r == '-' {
+			if !lastHyphen {
+				collapsed.WriteRune(r)
+				lastHyphen = true
+			}
+		} else {
+			collapsed.WriteRune(r)
+			lastHyphen = false
+		}
+	}
+
+	return collapsed.String()
 }
 
 func Convert(name string) string {

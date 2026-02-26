@@ -141,6 +141,9 @@ func (s *Server) loadProject(file string) {
 	if proj.Schema.Id == "" {
 		proj.Schema.Id = id.Convert(strings.ReplaceAll(proj.Schema.Name, " ", "-"))
 	}
+	
+	// Sanitize the ID when running as a server
+	proj.Schema.Id = id.Sanitize(proj.Schema.Id)
 
 	s.projects[proj.Schema.Id] = proj
 	log.Printf("Loaded project %s (%s) from %s", proj.Schema.Name, proj.Schema.Id, file)
