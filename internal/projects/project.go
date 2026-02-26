@@ -280,6 +280,11 @@ func (p *Project) Init() error {
 		return err
 	}
 
+	err = loadInventories(p)
+	if err != nil {
+		return err
+	}
+
 	scope := p.Scope.ToMap()
 
 	substitution := true

@@ -6,9 +6,9 @@ import (
 )
 
 type DotEnv struct {
-	Path     string   `yaml:"path"`
-	OS       string   `yaml:"os,omitempty"`
-	Contexts []string `yaml:"contexts,omitempty"`
+	Path     string   `yaml:"path" json:"path,omitempty"`
+	OS       string   `yaml:"os,omitempty" json:"os,omitempty"`
+	Contexts []string `yaml:"contexts,omitempty" json:"contexts,omitempty"`
 }
 
 type DotEnvs []DotEnv

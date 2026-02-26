@@ -20,14 +20,18 @@ func IsRemoteTask(uses string) bool {
 		strings.HasPrefix(uses, "@") ||
 		strings.HasPrefix(uses, "jsr:") ||
 		strings.HasPrefix(uses, "npm:") ||
-		strings.HasPrefix(uses, "file://")
+		strings.HasPrefix(uses, "file://") ||
+		strings.HasPrefix(uses, "./") ||
+		strings.HasPrefix(uses, "../") ||
+		filepath.IsAbs(uses)
 }
 
 // FetchRemoteTask resolves and downloads a remote task, returning the local file path to the entrypoint module.
 func FetchRemoteTask(p *Project, uses string, trustedSources []string) (string, error) {
 	// First, check trusted sources
 	isTrusted := false
-	if len(trustedSources) == 0 {
+	if len(trustedSources) == 0 || strings.HasPrefix(uses, "./") || strings.HasPrefix(uses, "../") || filepath.IsAbs(uses) {
+		isTrusted = true
 	}
 
 	for _, pattern := range trustedSources {
@@ -40,6 +44,29 @@ func FetchRemoteTask(p *Project, uses string, trustedSources []string) (string, 
 
 	if len(trustedSources) > 0 && !isTrusted {
 		return "", errors.Newf("remote task '%s' is not in trusted_sources", uses)
+	}
+
+	if strings.HasPrefix(uses, "./") || strings.HasPrefix(uses, "../") || filepath.IsAbs(uses) {
+		entryFile := uses
+		if !filepath.IsAbs(entryFile) {
+			entryFile = filepath.Join(p.Dir, entryFile)
+		}
+
+		stat, err := os.Stat(entryFile)
+		if err == nil && stat.IsDir() {
+			possibleFiles := []string{
+				"cast.task",
+				"cast.yaml",
+				"mod.ts", "main.ts", "index.ts",
+				"mod.js", "main.js", "index.js",
+			}
+			for _, file := range possibleFiles {
+				if _, err := os.Stat(filepath.Join(entryFile, file)); err == nil {
+					return filepath.Join(entryFile, file), nil
+				}
+			}
+		}
+		return entryFile, nil
 	}
 
 	VerifyChecksumAndRefresh(p)
@@ -102,14 +129,11 @@ func FetchRemoteTask(p *Project, uses string, trustedSources []string) (string, 
 		}
 
 		entryFile := filepath.Join(taskDir, subPath)
-		// Check if it's a directory, if so look for casttask.yaml or standard entrypoints
+		// Check if it's a directory, if so look for cast.task or standard entrypoints
 		stat, err := os.Stat(entryFile)
 		if err == nil && stat.IsDir() {
-			if _, err := os.Stat(filepath.Join(entryFile, "casttask.yaml")); err == nil {
-				return filepath.Join(entryFile, "casttask.yaml"), nil
-			}
-			if _, err := os.Stat(filepath.Join(entryFile, "casttask.yml")); err == nil {
-				return filepath.Join(entryFile, "casttask.yml"), nil
+			if _, err := os.Stat(filepath.Join(entryFile, "cast.task")); err == nil {
+				return filepath.Join(entryFile, "cast.task"), nil
 			}
 
 			entrypoints := []string{

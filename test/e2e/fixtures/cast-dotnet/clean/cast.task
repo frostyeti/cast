@@ -1,0 +1,16 @@
+name: dotnet-clean
+description: Clean a .NET project
+inputs:
+  CONFIGURATION:
+    description: "Build configuration (Debug/Release)"
+    required: false
+  PROJECT:
+    description: "Path to project file"
+    default: "."
+    required: false
+  OUTPUT:
+    description: "Output directory to clean"
+    required: false
+runs:
+  using: deno
+  main: main.ts

@@ -1,0 +1,16 @@
+name: dotnet-build
+description: Build a .NET project
+inputs:
+  CONFIGURATION:
+    description: "Build configuration (Debug/Release)"
+    required: false
+  NO_RESTORE:
+    description: "Disable restore during build"
+    required: false
+  PROJECT:
+    description: "Path to project file"
+    default: "."
+    required: false
+runs:
+  using: deno
+  main: main.ts

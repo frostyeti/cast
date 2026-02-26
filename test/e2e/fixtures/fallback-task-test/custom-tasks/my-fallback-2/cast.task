@@ -1,0 +1,4 @@
+name: my-fallback
+runs:
+  using: deno
+  main: mod.ts

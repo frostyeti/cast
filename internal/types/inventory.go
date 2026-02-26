@@ -8,9 +8,9 @@ import (
 type InventoryDefaults map[string]HostDefaults
 
 type Inventory struct {
-	Defaults  InventoryDefaults
-	Hosts     map[string]HostInfo
-	HostOrder []string
+	Defaults  InventoryDefaults   `yaml:"defaults,omitempty" json:"defaults,omitempty"`
+	Hosts     map[string]HostInfo `yaml:"hosts,omitempty" json:"hosts,omitempty"`
+	HostOrder []string            `yaml:"-" json:"-"`
 }
 
 func (iv *Inventory) UnmarshalYAML(node *yaml.Node) error {

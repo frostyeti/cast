@@ -1,0 +1,75 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/frostyeti/cast/main/schemas/cast.task.json",
+  "title": "Cast Task Schema",
+  "description": "Schema for a standalone Cast Task module (cast.task) used for reusable components and external execution.",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "The name of the task."
+    },
+    "description": {
+      "type": "string",
+      "description": "A description of what the task does."
+    },
+    "inputs": {
+      "type": "object",
+      "description": "Inputs required or optional for the task to execute.",
+      "patternProperties": {
+        "^[a-zA-Z0-9_-]+$": {
+          "type": "object",
+          "properties": {
+            "description": {
+              "type": "string",
+              "description": "Description of the input parameter."
+            },
+            "default": {
+              "type": "string",
+              "description": "Default value if the input is not provided."
+            },
+            "required": {
+              "type": "boolean",
+              "description": "Whether this input must be provided by the caller."
+            }
+          }
+        }
+      }
+    },
+    "runs": {
+      "type": "object",
+      "description": "Defines how the task is executed.",
+      "properties": {
+        "using": {
+          "type": "string",
+          "description": "The execution engine to use (e.g., 'docker', 'deno', 'composite').",
+          "enum": ["docker", "deno", "composite", "bash", "sh"]
+        },
+        "image": {
+          "type": "string",
+          "description": "The Docker image to use (if using='docker')."
+        },
+        "args": {
+          "type": "array",
+          "description": "Arguments to pass to the execution engine.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "main": {
+          "type": "string",
+          "description": "The main script file to execute (if using='deno')."
+        },
+        "steps": {
+          "type": "array",
+          "description": "Steps to execute (if using='composite').",
+          "items": {
+            "$ref": "castfile.json#/definitions/task"
+          }
+        }
+      },
+      "required": ["using"]
+    }
+  },
+  "required": ["name", "runs"]
+}

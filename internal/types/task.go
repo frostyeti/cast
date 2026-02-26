@@ -8,26 +8,26 @@ import (
 )
 
 type Task struct {
-	Id       string
-	Name     string
-	Slug     string
-	Desc     *string
-	Help     *string
-	Env      *Env
-	DotEnv   []string
-	Cwd      *string
-	Timeout  *string
-	Run      *string
-	Uses     *string
-	Args     []string
-	Needs    Needs
-	With     *With
-	Hosts    []string
-	If       *string
-	Hooks    *Hooks
-	Force    *string
-	Extends  *string
-	Template *string
+	Id       string   `yaml:"id,omitempty" json:"id,omitempty"`
+	Name     string   `yaml:"name,omitempty" json:"name,omitempty"`
+	Slug     string   `yaml:"slug,omitempty" json:"slug,omitempty"`
+	Desc     *string  `yaml:"desc,omitempty" json:"desc,omitempty"`
+	Help     *string  `yaml:"help,omitempty" json:"help,omitempty"`
+	Env      *Env     `yaml:"env,omitempty" json:"env,omitempty"`
+	DotEnv   []string `yaml:"dotenv,omitempty" json:"dotenv,omitempty"`
+	Cwd      *string  `yaml:"cwd,omitempty" json:"cwd,omitempty"`
+	Timeout  *string  `yaml:"timeout,omitempty" json:"timeout,omitempty"`
+	Run      *string  `yaml:"run,omitempty" json:"run,omitempty"`
+	Uses     *string  `yaml:"uses,omitempty" json:"uses,omitempty"`
+	Args     []string `yaml:"args,omitempty" json:"args,omitempty"`
+	Needs    Needs    `yaml:"needs,omitempty" json:"needs,omitempty"`
+	With     *With    `yaml:"with,omitempty" json:"with,omitempty"`
+	Hosts    []string `yaml:"hosts,omitempty" json:"hosts,omitempty"`
+	If       *string  `yaml:"if,omitempty" json:"if,omitempty"`
+	Hooks    *Hooks   `yaml:"hooks,omitempty" json:"hooks,omitempty"`
+	Force    *string  `yaml:"force,omitempty" json:"force,omitempty"`
+	Extends  *string  `yaml:"extends,omitempty" json:"extends,omitempty"`
+	Template *string  `yaml:"template,omitempty" json:"template,omitempty"`
 }
 
 func (t *Task) UnmarshalYAML(value *yaml.Node) error {

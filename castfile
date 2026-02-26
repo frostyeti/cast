@@ -54,8 +54,15 @@ tasks:
 
   hello:
     uses: bash
-    with:
-      script: "./hello.sh"
+    run: |
+      echo "Hello, World!"
+
+  test:
+    uses: bash
+    run: |
+      echo "This is a test task."
+    env:
+      TEST_VAR: "test_value"
 
   ssh:
     uses: ssh
@@ -84,3 +91,10 @@ tasks:
       func main() {
           fmt.Println("Hello from Go task!")
       }
+
+
+jobs:
+  test:
+    steps:
+      - test
+      - hello

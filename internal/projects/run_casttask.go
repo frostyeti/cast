@@ -30,7 +30,20 @@ func runCastTask(ctx TaskContext, casttaskPath string) *TaskResult {
 
 	// Validate inputs and create INPUT_ vars
 	for inputName, inputDef := range def.Inputs {
+		// Try exact match first
 		val, ok := ctx.Task.With[inputName]
+
+		// Try lowercase match
+		if !ok {
+			for k, v := range ctx.Task.With {
+				if strings.ToLower(k) == strings.ToLower(inputName) {
+					val = v
+					ok = true
+					break
+				}
+			}
+		}
+
 		if !ok && inputDef.Required {
 			return res.Fail(errors.Newf("remote task '%s' requires input '%s'", def.Name, inputName))
 		}
@@ -43,7 +56,7 @@ func runCastTask(ctx TaskContext, casttaskPath string) *TaskResult {
 		}
 
 		if valStr != "" {
-			envKey := "INPUT_" + strings.ToUpper(inputName)
+			envKey := "INPUT_" + strings.ToUpper(strings.ReplaceAll(inputName, "-", "_"))
 			envUpdates[envKey] = valStr
 		}
 	}
@@ -74,7 +87,7 @@ func runCastTask(ctx TaskContext, casttaskPath string) *TaskResult {
 	case "composite":
 		return res.Fail(errors.New("composite remote tasks are not yet implemented"))
 	default:
-		return res.Fail(errors.Newf("unknown execution engine '%s' in casttask.yaml", def.Runs.Using))
+		return res.Fail(errors.Newf("unknown execution engine '%s' in cast.task", def.Runs.Using))
 	}
 }
 

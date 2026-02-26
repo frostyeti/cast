@@ -18,16 +18,17 @@ type Project struct {
 	DotEnv         *DotEnvs         `yaml:"dotenv,omitempty" json:"dotenv,omitempty"`
 	Paths          *Paths           `yaml:"paths,omitempty" json:"paths,omitempty"`
 	Defaults       *ProjectDefaults `yaml:"defaults,omitempty" json:"defaults,omitempty"`
-	Config         *ProjectConfig
-	On             *On        `yaml:"on,omitempty" json:"on,omitempty"`
-	Meta           *Meta      `yaml:"meta,omitempty" json:"meta,omitempty"`
-	Workspace      *Workspace `yaml:"workspace,omitempty" json:"workspace,omitempty"`
-	Tasks          *TaskMap   `yaml:"tasks,omitempty" json:"tasks,omitempty"`
-	Jobs           *JobMap    `yaml:"jobs,omitempty" json:"jobs,omitempty"`
-	Inventory      *Inventory `yaml:"inventory,omitempty" json:"inventory,omitempty"`
-	TrustedSources []string   `yaml:"trusted_sources,omitempty" json:"trusted_sources,omitempty"`
-	Modules        []Module   `yaml:"-" json:"-"`
-	File           string     `yaml:"-" json:"-"`
+	Config         *ProjectConfig   `yaml:"config,omitempty" json:"config,omitempty"`
+	On             *On              `yaml:"on,omitempty" json:"on,omitempty"`
+	Meta           *Meta            `yaml:"meta,omitempty" json:"meta,omitempty"`
+	Workspace      *Workspace       `yaml:"workspace,omitempty" json:"workspace,omitempty"`
+	Tasks          *TaskMap         `yaml:"tasks,omitempty" json:"tasks,omitempty"`
+	Jobs           *JobMap          `yaml:"jobs,omitempty" json:"jobs,omitempty"`
+	Inventory      *Inventory       `yaml:"inventory,omitempty" json:"inventory,omitempty"`
+	Inventories    []string         `yaml:"inventories,omitempty" json:"inventories,omitempty"`
+	TrustedSources []string         `yaml:"trusted_sources,omitempty" json:"trusted_sources,omitempty"`
+	Modules        []Module         `yaml:"-" json:"-"`
+	File           string           `yaml:"-" json:"-"`
 }
 
 func NewProject() *Project {
@@ -142,6 +143,13 @@ func (p *Project) UnmarshalYAML(node *yaml.Node) error {
 			err := valueNode.Decode(p.Inventory)
 			if err != nil {
 				return errors.NewYamlError(valueNode, "failed to decode project inventory: "+err.Error())
+			}
+		case "inventories":
+			if valueNode.Kind != yaml.SequenceNode {
+				return errors.NewYamlError(valueNode, "project inventories must be a sequence.")
+			}
+			for _, item := range valueNode.Content {
+				p.Inventories = append(p.Inventories, item.Value)
 			}
 		case "trusted_sources", "trustedSources", "trusted-sources":
 			if valueNode.Kind != yaml.SequenceNode {

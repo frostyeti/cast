@@ -21,15 +21,17 @@ type jsonTaskMap struct {
 }
 
 func (t *TaskMap) MarshalJSON() ([]byte, error) {
-	if t == nil {
-		t = &TaskMap{}
+	if t == nil || len(t.keys) == 0 {
+		return json.Marshal([]Task{})
 	}
 
-	jtaskMap := jsonTaskMap{
-		Values: t.values,
-		Keys:   t.keys,
+	values := make([]Task, 0, len(t.keys))
+	for _, k := range t.keys {
+		if task, ok := t.values[k]; ok {
+			values = append(values, task)
+		}
 	}
-	return json.Marshal(jtaskMap)
+	return json.Marshal(values)
 }
 
 func (t *TaskMap) UnmarshalJSON(data []byte) error {
@@ -40,14 +42,15 @@ func (t *TaskMap) UnmarshalJSON(data []byte) error {
 		t.values = make(map[string]Task)
 	}
 
-	jtaskMap := jsonTaskMap{}
-	err := json.Unmarshal(data, &jtaskMap)
+	var tasks []Task
+	err := json.Unmarshal(data, &tasks)
 	if err != nil {
 		return err
 	}
 
-	t.values = jtaskMap.Values
-	t.keys = jtaskMap.Keys
+	for _, task := range tasks {
+		t.Add(&task)
+	}
 
 	return nil
 }

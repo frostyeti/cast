@@ -223,6 +223,13 @@
             },
             "description": "A list of .env files to load before running the task"
         },
+        "inventories": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "description": "A list of standalone inventory files to load and merge"
+        },
         "inventory": {
             "type": "object",
             "properties": {

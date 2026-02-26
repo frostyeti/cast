@@ -1,0 +1,22 @@
+name: dotnet-pack
+description: Pack a .NET project into a NuGet package
+inputs:
+  CONFIGURATION:
+    description: "Build configuration (Debug/Release)"
+    required: false
+  NO_RESTORE:
+    description: "Disable restore during pack"
+    required: false
+  NO_BUILD:
+    description: "Disable build during pack"
+    required: false
+  PROJECT:
+    description: "Path to project file"
+    default: "."
+    required: false
+  OUTPUT:
+    description: "Output directory for packages"
+    required: false
+runs:
+  using: deno
+  main: main.ts

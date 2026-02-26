@@ -33,5 +33,27 @@
 
 
 ```text
-
+.
+├── AGENTS.md
+├── castfile            # Example project definition
+├── cmd/                # CLI commands
+├── docs/               # Documentation
+├── go.mod              # Go module definition
+├── internal/           # Internal packages
+│   ├── errors/
+│   ├── eval/
+│   ├── id/
+│   ├── modules/
+│   ├── paths/
+│   ├── projects/
+│   ├── runstatus/
+│   ├── scriptx/
+│   ├── types/
+│   └── web/            # Web server daemon
+├── LICENSE
+├── main.go             # Main application entry point
+├── mise.toml           # Tool versions configuration
+├── schemas/            # JSON schemas
+└── test/
+    └── e2e/            # End-to-end testing
 ```

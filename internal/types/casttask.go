@@ -36,7 +36,7 @@ func (c *CastTask) ReadFromYaml(file string) error {
 
 	err = yaml.Unmarshal(data, c)
 	if err != nil {
-		return errors.NewYamlError(nil, "failed to parse casttask.yaml: "+err.Error())
+		return errors.NewYamlError(nil, "failed to parse cast.task: "+err.Error())
 	}
 	return nil
 }

@@ -1,0 +1,4 @@
+name: my-relative-task
+runs:
+  using: deno
+  main: run.ts

@@ -10,15 +10,15 @@ import (
 )
 
 type HostInfo struct {
-	Host         string   `json:"host:omitempty"`
-	Port         *uint    `json:"port:omitempty"`
-	User         *string  `json:"user:omitempty"`
-	IdentityFile *string  `json:"identityFile:omitempty"`
-	Password     *string  `json:"password:omitempty"`
-	Tags         []string `json:"tags:omitempty"`
-	Meta         *Meta    `json:"meta:omitempty"`
-	OS           *OsInfo  `json:"os:omitempty"`
-	Defaults     string   `json:"defaults:omitempty"`
+	Host         string   `json:"host,omitempty"`
+	Port         *uint    `json:"port,omitempty"`
+	User         *string  `json:"user,omitempty"`
+	IdentityFile *string  `json:"identityFile,omitempty"`
+	Password     *string  `json:"password,omitempty"`
+	Tags         []string `json:"tags,omitempty"`
+	Meta         *Meta    `json:"meta,omitempty"`
+	OS           *OsInfo  `json:"os,omitempty"`
+	Defaults     string   `json:"defaults,omitempty"`
 }
 
 func (he *HostInfo) UnmarshalYAML(node *yaml.Node) error {

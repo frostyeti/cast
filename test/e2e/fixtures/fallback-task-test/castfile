@@ -1,0 +1,3 @@
+tasks:
+  test-absolute:
+    uses: /home/dev/repos/cast/test/e2e/fixtures/fallback-task-test/my-task/dev.task

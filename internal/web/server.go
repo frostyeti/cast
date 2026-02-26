@@ -16,6 +16,7 @@ import (
 
 	"github.com/frostyeti/cast/internal/id"
 	"github.com/frostyeti/cast/internal/projects"
+	"github.com/frostyeti/cast/internal/types"
 	"github.com/go-co-op/gocron/v2"
 	"github.com/google/uuid"
 )
@@ -59,9 +60,13 @@ func (s *Server) Start() error {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", s.handleHealth)
+	mux.HandleFunc("GET /help", s.handleHelp)
+	mux.HandleFunc("GET /{$}", s.handleHelp)
 	mux.HandleFunc("GET /api/v1/projects", s.handleGetProjects)
 	mux.HandleFunc("GET /api/v1/projects/{id}/jobs", s.handleGetJobs)
+	mux.HandleFunc("GET /api/v1/projects/{id}/jobs/{jobId}", s.handleGetJob)
 	mux.HandleFunc("GET /api/v1/projects/{id}/tasks", s.handleGetTasks)
+	mux.HandleFunc("GET /api/v1/projects/{id}/tasks/{taskId}", s.handleGetTask)
 	mux.HandleFunc("GET /api/v1/projects/{id}/jobs/{jobId}/runs", s.handleGetJobRuns)
 	mux.HandleFunc("POST /api/v1/projects/{id}/jobs/{jobId}/trigger", s.handleTriggerJob)
 	mux.HandleFunc("POST /api/v1/projects/{id}/tasks/{taskId}/trigger", s.handleTriggerTask)
@@ -141,9 +146,26 @@ func (s *Server) loadProject(file string) {
 	if proj.Schema.Id == "" {
 		proj.Schema.Id = id.Convert(strings.ReplaceAll(proj.Schema.Name, " ", "-"))
 	}
-	
+
 	// Sanitize the ID when running as a server
 	proj.Schema.Id = id.Sanitize(proj.Schema.Id)
+
+	if proj.Schema.Jobs != nil {
+		sanitizedJobs := types.NewJobMap()
+		for _, j := range proj.Schema.Jobs.Values() {
+			j.Id = id.Sanitize(j.Id)
+			if j.Needs != nil {
+				newNeeds := make(types.Needs, len(*j.Needs))
+				for i, need := range *j.Needs {
+					need.Id = id.Sanitize(need.Id)
+					newNeeds[i] = need
+				}
+				j.Needs = &newNeeds
+			}
+			sanitizedJobs.Add(&j)
+		}
+		proj.Schema.Jobs = sanitizedJobs
+	}
 
 	s.projects[proj.Schema.Id] = proj
 	log.Printf("Loaded project %s (%s) from %s", proj.Schema.Name, proj.Schema.Id, file)
@@ -363,4 +385,72 @@ func (s *Server) handleTriggerTask(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusAccepted)
 	w.Write([]byte(fmt.Sprintf("Triggered task %s in project %s", taskId, projId)))
+}
+
+func (s *Server) handleGetJob(w http.ResponseWriter, r *http.Request) {
+	projectId := r.PathValue("id")
+	jobId := r.PathValue("jobId")
+
+	p, ok := s.projects[projectId]
+	if !ok {
+		http.Error(w, "project not found", http.StatusNotFound)
+		return
+	}
+
+	if p.Schema.Jobs == nil {
+		http.Error(w, "job not found", http.StatusNotFound)
+		return
+	}
+
+	job, ok := p.Schema.Jobs.Get(jobId)
+	if !ok {
+		http.Error(w, "job not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(job)
+}
+
+func (s *Server) handleGetTask(w http.ResponseWriter, r *http.Request) {
+	projectId := r.PathValue("id")
+	taskId := r.PathValue("taskId")
+
+	p, ok := s.projects[projectId]
+	if !ok {
+		http.Error(w, "project not found", http.StatusNotFound)
+		return
+	}
+
+	if p.Schema.Tasks == nil {
+		http.Error(w, "task not found", http.StatusNotFound)
+		return
+	}
+
+	task, ok := p.Schema.Tasks.Get(taskId)
+	if !ok {
+		http.Error(w, "task not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(task)
+}
+
+func (s *Server) handleHelp(w http.ResponseWriter, r *http.Request) {
+	endpoints := []map[string]string{
+		{"method": "GET", "path": "/health", "description": "Health check"},
+		{"method": "GET", "path": "/help", "description": "List all API endpoints"},
+		{"method": "GET", "path": "/api/v1/projects", "description": "List all projects"},
+		{"method": "GET", "path": "/api/v1/projects/{id}/jobs", "description": "List all jobs for a project"},
+		{"method": "GET", "path": "/api/v1/projects/{id}/jobs/{jobId}", "description": "Get a specific job for a project"},
+		{"method": "GET", "path": "/api/v1/projects/{id}/tasks", "description": "List all tasks for a project"},
+		{"method": "GET", "path": "/api/v1/projects/{id}/tasks/{taskId}", "description": "Get a specific task for a project"},
+		{"method": "GET", "path": "/api/v1/projects/{id}/jobs/{jobId}/runs", "description": "List runs for a specific job"},
+		{"method": "POST", "path": "/api/v1/projects/{id}/jobs/{jobId}/trigger", "description": "Trigger a job in a project"},
+		{"method": "POST", "path": "/api/v1/projects/{id}/tasks/{taskId}/trigger", "description": "Trigger a task in a project"},
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(endpoints)
 }

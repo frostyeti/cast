@@ -1,6 +1,7 @@
 package types
 
 import (
+	"encoding/json"
 	"strconv"
 
 	"github.com/frostyeti/cast/internal/errors"
@@ -25,15 +26,11 @@ func NewMeta() *Meta {
 }
 
 func (m *Meta) MarshalJSON() ([]byte, error) {
-	if m == nil {
-		m = &Meta{}
+	if m == nil || len(m.keys) == 0 {
+		return json.Marshal(nil)
 	}
 
-	jmeta := jsonMeta{
-		Values: m.values,
-		Keys:   m.keys,
-	}
-	return yaml.Marshal(jmeta)
+	return json.Marshal(m.values)
 }
 
 func (m *Meta) UnmarshalJSON(data []byte) error {
@@ -44,14 +41,15 @@ func (m *Meta) UnmarshalJSON(data []byte) error {
 		m.values = make(map[string]interface{})
 	}
 
-	jmeta := jsonMeta{}
-	err := yaml.Unmarshal(data, &jmeta)
+	var values map[string]interface{}
+	err := json.Unmarshal(data, &values)
 	if err != nil {
 		return err
 	}
 
-	m.values = jmeta.Values
-	m.keys = jmeta.Keys
+	for k, v := range values {
+		m.Set(k, v)
+	}
 
 	return nil
 }

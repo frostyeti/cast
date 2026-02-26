@@ -8,13 +8,13 @@ import (
 )
 
 type OsInfo struct {
-	Platform     string `json:"platform:omitempty"`
-	Arch         string `json:"arch:omitempty"`
-	Variant      string `json:"variant:omitempty"`
-	Family       string `json:"family:omitempty"`
-	Codename     string `json:"codename:omitempty"`
-	Version      string `json:"version:omitempty"`
-	BuildVersion string `json:"buildVersion:omitempty"`
+	Platform     string `json:"platform,omitempty"`
+	Arch         string `json:"arch,omitempty"`
+	Variant      string `json:"variant,omitempty"`
+	Family       string `json:"family,omitempty"`
+	Codename     string `json:"codename,omitempty"`
+	Version      string `json:"version,omitempty"`
+	BuildVersion string `json:"buildVersion,omitempty"`
 }
 
 func (o *OsInfo) UnmarshalYAML(node *yaml.Node) error {

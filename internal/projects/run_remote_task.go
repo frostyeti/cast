@@ -31,7 +31,7 @@ func runRemoteTask(ctx TaskContext) *TaskResult {
 		modulePath = uses
 	}
 
-	if strings.HasSuffix(modulePath, "casttask.yaml") || strings.HasSuffix(modulePath, "casttask.yml") {
+	if strings.HasSuffix(modulePath, "cast.task") || strings.HasSuffix(modulePath, "cast.yaml") || strings.HasSuffix(modulePath, ".yaml") || strings.HasSuffix(modulePath, ".yml") || strings.HasSuffix(modulePath, ".task") {
 		return runCastTask(ctx, modulePath)
 	}
 

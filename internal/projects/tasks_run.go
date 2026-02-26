@@ -32,6 +32,43 @@ type RunTasksParams struct {
 	Stderr      io.Writer
 }
 
+func findFallbackTask(uses string, projectDir string) (string, bool) {
+	tasksDir := os.Getenv("CAST_TASKS_DIR")
+	if tasksDir == "" {
+		tasksDir = filepath.Join(projectDir, ".cast", "tasks")
+	} else if !filepath.IsAbs(tasksDir) {
+		tasksDir = filepath.Join(projectDir, tasksDir)
+	}
+
+	possiblePaths := []string{
+		filepath.Join(tasksDir, uses, "cast.task"),
+		filepath.Join(tasksDir, uses, "cast.yaml"),
+		filepath.Join(tasksDir, uses+".yaml"),
+		filepath.Join(tasksDir, uses+".yml"),
+		filepath.Join(tasksDir, uses+".task"),
+	}
+
+	homeDir, _ := os.UserHomeDir()
+	if homeDir != "" {
+		globalTasksDir := filepath.Join(homeDir, ".local", "share", "cast", "tasks")
+		possiblePaths = append(possiblePaths,
+			filepath.Join(globalTasksDir, uses, "cast.task"),
+			filepath.Join(globalTasksDir, uses, "cast.yaml"),
+			filepath.Join(globalTasksDir, uses+".yaml"),
+			filepath.Join(globalTasksDir, uses+".yml"),
+			filepath.Join(globalTasksDir, uses+".task"),
+		)
+	}
+
+	for _, p := range possiblePaths {
+		if _, err := os.Stat(p); err == nil {
+			return p, true
+		}
+	}
+
+	return "", false
+}
+
 func (p *Project) RunTask(params RunTasksParams) ([]*TaskResult, error) {
 	p.ContextName = params.ContextName
 	err := p.Init()
@@ -412,6 +449,9 @@ func (p *Project) RunTask(params RunTasksParams) ([]*TaskResult, error) {
 		handler, ok := GetTaskHandler(uses)
 		if !ok {
 			if IsRemoteTask(uses) {
+				handler = runRemoteTask
+			} else if fallbackPath, found := findFallbackTask(uses, p.Dir); found {
+				m.Uses = fallbackPath // update Uses to point to the resolved local file
 				handler = runRemoteTask
 			} else {
 				err := errors.Newf("unable to find task handler for %s using %s", task.Name, uses)

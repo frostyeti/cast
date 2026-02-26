@@ -1,6 +1,7 @@
 package types
 
 import (
+	"encoding/json"
 	"maps"
 	"strconv"
 
@@ -11,6 +12,13 @@ import (
 type With struct {
 	values map[string]interface{}
 	keys   []string
+}
+
+func (w *With) MarshalJSON() ([]byte, error) {
+	if w == nil || len(w.values) == 0 {
+		return json.Marshal(nil)
+	}
+	return json.Marshal(w.values)
 }
 
 func (w *With) UnmarshalYAML(value *yaml.Node) error {

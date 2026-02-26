@@ -23,6 +23,6 @@ var webCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(webCmd)
-	webCmd.Flags().IntP("port", "p", 8080, "Port to listen on")
-	webCmd.Flags().StringP("addr", "a", "127.0.0.1", "Address to listen on")
+	webCmd.PersistentFlags().IntP("port", "p", 8080, "Port to listen on")
+	webCmd.PersistentFlags().StringP("addr", "a", "127.0.0.1", "Address to listen on")
 }

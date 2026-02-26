@@ -29,7 +29,7 @@ func TestE2E_RemoteCastTaskWithSemver(t *testing.T) {
 	runGit(t, repoDir, "config", "user.name", "Test User")
 	runGit(t, repoDir, "config", "user.email", "test@example.com")
 
-	// create casttask.yaml
+	// create cast.task
 	casttaskYaml := `
 name: Semver Task
 description: A test remote task
@@ -41,8 +41,8 @@ runs:
   using: deno
   main: mod.ts
 `
-	if err := os.WriteFile(filepath.Join(repoDir, "casttask.yaml"), []byte(casttaskYaml), 0644); err != nil {
-		t.Fatalf("failed to write casttask.yaml: %v", err)
+	if err := os.WriteFile(filepath.Join(repoDir, "cast.task"), []byte(casttaskYaml), 0644); err != nil {
+		t.Fatalf("failed to write cast.task: %v", err)
 	}
 
 	// create mod.ts

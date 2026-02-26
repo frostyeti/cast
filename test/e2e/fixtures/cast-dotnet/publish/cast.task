@@ -1,0 +1,25 @@
+name: dotnet-publish
+description: Publish a .NET project
+inputs:
+  CONFIGURATION:
+    description: "Build configuration (Debug/Release)"
+    required: false
+  NO_RESTORE:
+    description: "Disable restore during publish"
+    required: false
+  NO_BUILD:
+    description: "Disable build during publish"
+    required: false
+  PROJECT:
+    description: "Path to project file"
+    default: "."
+    required: false
+  OUTPUT:
+    description: "Output directory for published files"
+    required: false
+  RUNTIME:
+    description: "Target runtime (e.g., win-x64, linux-x64)"
+    required: false
+runs:
+  using: deno
+  main: main.ts

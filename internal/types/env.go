@@ -1,6 +1,7 @@
 package types
 
 import (
+	"encoding/json"
 	"iter"
 	"maps"
 	"os"
@@ -23,6 +24,13 @@ func (e *Env) MarshalYAML() (interface{}, error) {
 		mapping[k] = e.Map[k]
 	}
 	return mapping, nil
+}
+
+func (e *Env) MarshalJSON() ([]byte, error) {
+	if e == nil || len(e.Map) == 0 {
+		return json.Marshal(nil)
+	}
+	return json.Marshal(e.Map)
 }
 
 type EnvVarsVariable struct {

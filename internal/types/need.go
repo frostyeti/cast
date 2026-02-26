@@ -6,8 +6,8 @@ import (
 )
 
 type Need struct {
-	Id       string `yaml:"id,omitempty"`
-	Parallel bool   `yaml:"parallel,omitempty"`
+	Id       string `yaml:"id,omitempty" json:"id,omitempty"`
+	Parallel bool   `yaml:"parallel,omitempty" json:"parallel,omitempty"`
 }
 
 type Needs []Need

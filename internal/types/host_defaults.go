@@ -8,13 +8,13 @@ import (
 )
 
 type HostDefaults struct {
-	Port         *uint    `yaml:"port,omitempty"`
-	User         *string  `yaml:"user,omitempty"`
-	IdentityFile *string  `yaml:"identity,omitempty"`
-	Password     *string  `yaml:"password,omitempty"`
-	Tags         []string `yaml:"groups,omitempty"`
-	Meta         *Meta    `yaml:"meta,omitempty"`
-	OS           *OsInfo  `yaml:"os,omitempty"`
+	Port         *uint    `yaml:"port,omitempty" json:"port,omitempty"`
+	User         *string  `yaml:"user,omitempty" json:"user,omitempty"`
+	IdentityFile *string  `yaml:"identity,omitempty" json:"identity,omitempty"`
+	Password     *string  `yaml:"password,omitempty" json:"password,omitempty"`
+	Tags         []string `yaml:"groups,omitempty" json:"tags,omitempty"`
+	Meta         *Meta    `yaml:"meta,omitempty" json:"meta,omitempty"`
+	OS           *OsInfo  `yaml:"os,omitempty" json:"os,omitempty"`
 }
 
 func (hd *HostDefaults) UnmarshalYAML(value *yaml.Node) error {

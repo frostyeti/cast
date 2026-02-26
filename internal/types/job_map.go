@@ -21,15 +21,17 @@ type jsonJobMap struct {
 }
 
 func (t *JobMap) MarshalJSON() ([]byte, error) {
-	if t == nil {
-		t = &JobMap{}
+	if t == nil || len(t.keys) == 0 {
+		return json.Marshal([]Job{})
 	}
 
-	jJobMap := jsonJobMap{
-		Values: t.values,
-		Keys:   t.keys,
+	values := make([]Job, 0, len(t.keys))
+	for _, k := range t.keys {
+		if job, ok := t.values[k]; ok {
+			values = append(values, job)
+		}
 	}
-	return json.Marshal(jJobMap)
+	return json.Marshal(values)
 }
 
 func (t *JobMap) UnmarshalJSON(data []byte) error {
@@ -40,14 +42,15 @@ func (t *JobMap) UnmarshalJSON(data []byte) error {
 		t.values = make(map[string]Job)
 	}
 
-	jJobMap := jsonJobMap{}
-	err := json.Unmarshal(data, &jJobMap)
+	var jobs []Job
+	err := json.Unmarshal(data, &jobs)
 	if err != nil {
 		return err
 	}
 
-	t.values = jJobMap.Values
-	t.keys = jJobMap.Keys
+	for _, job := range jobs {
+		t.Add(&job)
+	}
 
 	return nil
 }
