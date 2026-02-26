@@ -28,6 +28,7 @@
 - use go doc comments to document any exported functions, types, etc.
 - use go generate to generate any code that can be generated, such as mocks, etc.
 - use go releaser to automate releases and versioning.
+- When making new alpha/prerelease releases, DO NOT bump the minor version (e.g. v0.2.0-alpha.0). Instead, increment the alpha version number (e.g. v0.1.0-alpha.1, v0.1.0-alpha.2, etc).
 
 ## Project Structure
 
