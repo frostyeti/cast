@@ -57,6 +57,33 @@ func provideProjectCompletion(cmd *cobra.Command, args []string, toComplete stri
 				completions = append(completions, candidate)
 			}
 		}
+
+		// Also check for subdirectories with castfiles if not explicitly in workspace
+		entries, err := os.ReadDir(filepath.Dir(projectFile))
+		if err == nil {
+			for _, entry := range entries {
+				if entry.IsDir() && !strings.HasPrefix(entry.Name(), ".") {
+					tryFiles := []string{"castfile", ".castfile", "castfile.yaml", "castfile.yml"}
+					for _, f := range tryFiles {
+						if _, err := os.Stat(filepath.Join(filepath.Dir(projectFile), entry.Name(), f)); err == nil {
+							candidate := "@" + entry.Name()
+							alreadyAdded := false
+							for _, c := range completions {
+								if c == candidate {
+									alreadyAdded = true
+									break
+								}
+							}
+							if !alreadyAdded && strings.HasPrefix(candidate, toComplete) {
+								completions = append(completions, candidate)
+							}
+							break
+						}
+					}
+				}
+			}
+		}
+
 		return completions, cobra.ShellCompDirectiveNoFileComp
 	}
 
@@ -71,13 +98,30 @@ func provideProjectCompletion(cmd *cobra.Command, args []string, toComplete stri
 			if wp, ok := project.Workspace[alias]; ok {
 				project = &projects.Project{}
 				_ = project.LoadFromYaml(wp.Path)
+			} else {
+				// Fallback: check if it's a directory
+				fullPath := filepath.Join(filepath.Dir(projectFile), alias)
+				if info, err := os.Stat(fullPath); err == nil && info.IsDir() {
+					tryFiles := []string{"castfile", ".castfile", "castfile.yaml", "castfile.yml"}
+					for _, f := range tryFiles {
+						targetFile := filepath.Join(fullPath, f)
+						if _, err := os.Stat(targetFile); err == nil {
+							project = &projects.Project{}
+							_ = project.LoadFromYaml(targetFile)
+							break
+						}
+					}
+				}
 			}
 			break
 		}
 	}
 
 	// Init to resolve tasks fully
-	_ = project.Init()
+	err = project.Init()
+	if err != nil {
+		cobra.CompDebugln(err.Error(), true)
+	}
 
 	// Suggest tasks
 	for _, taskName := range project.Tasks.Keys() {
