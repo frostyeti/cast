@@ -61,7 +61,7 @@ tasks:
 		require.NoError(t, err, "cast run build failed: %s", string(out))
 
 		output := string(out)
-		
+
 		// Verify all tasks ran in correct order
 		require.Contains(t, output, "running before hook")
 		require.Contains(t, output, "running build task")
@@ -83,7 +83,7 @@ tasks:
 		require.NoError(t, err, "cast run deploy failed: %s", string(out))
 
 		output := string(out)
-		
+
 		// Verify all tasks ran in correct order
 		require.Contains(t, output, "running before deploy")
 		require.Contains(t, output, "running deploy task")

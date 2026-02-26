@@ -1,100 +1,16 @@
-id: "@org/project-id"
-name: "cast"
-description: "A description of the cast project."
-version: "0.1.0"
-
-#imports:
-#  - from: "vendor/azure"
-
-config:
-  substitution: true # defaults to true allows command substitution in tasks and jobs
-  context: "default"
-
-defaults:
-  shell: shell
-
-workspace:
-  include: 
-    - "src/**"
-    - "lib/**"
-
-  exclude:
-    - "tests/**"
-    - "docs/**"
-
-  aliases:
-    src: "./path/to/src"
-    lib: "libraries"
-
-inventory:
-  hosts:
-    key:
-      host: 192.168.122.226
-      user: dev
-      tags: ["dev"]
-
-env:
-  ONE: "test"
-
-dotenv:
-  - "file?"
-
-paths:
-  - windows: "C:/path/to/windows/bin"
-
 tasks:
-  long:
+  slow_task:
     uses: bash
     run: |
-      echo "This is a long task."
-    cwd: "./"
-    env:
-      EXAMPLE_VAR: "example_value"
-    hooks: true
-
-  hello:
-    uses: bash
-    run: |
-      echo "Hello, World!"
-
-  test:
-    uses: bash
-    run: |
-      echo "This is a test task."
-    env:
-      TEST_VAR: "test_value"
-
-  ssh:
-    uses: ssh
-    run: |
-      echo "This task runs over SSH."
-    hosts: ["key"]
-    needs:
-      - long
-  deno: 
-    uses: deno
-    run: "console.log('Hello from Deno task!');"
-    timeout: "10m"
-
-
-  dotnet:
-    uses: dotnet
-    run: "Console.WriteLine(\"Hello from .NET task!\");"
-
-  go:
-    uses: go
-    run: |
-      package main
-
-      import "fmt"
-
-      func main() {
-          fmt.Println("Hello from Go task!")
-      }
-
+      echo "Starting task..."
+      for i in {1..5}; do
+        echo "Task running $i..."
+        sleep 1
+      done
+      echo "Task done!"
 
 jobs:
-  test:
+  slow_job:
+    cron: "*/1 * * * *"
     steps:
-      - test
-      - hello
+      - slow_task

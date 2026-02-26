@@ -154,6 +154,49 @@ tasks:
 
 ---
 
+## Extends (Inheritance)
+
+Reduce duplication by using the `extends` keyword to inherit properties from another task or job. The child task or job will deeply merge its properties with the base, allowing you to easily override specific settings like `env`, `run`, `cwd`, and `steps`.
+
+### Task Extends
+
+```yaml
+tasks:
+  base-build:
+    desc: "Base build configuration"
+    cwd: ./src
+    env:
+      BUILD_ENV: "production"
+    run: npm run build
+
+  build-dev:
+    extends: base-build
+    desc: "Build for development"
+    env:
+      BUILD_ENV: "development"
+```
+
+### Job Extends
+
+```yaml
+jobs:
+  base-deploy:
+    desc: "Base deployment job"
+    timeout: "5m"
+    env:
+      REGION: "us-east-1"
+    steps:
+      - run: deploy
+
+  deploy-eu:
+    extends: base-deploy
+    desc: "Deploy to EU region"
+    env:
+      REGION: "eu-west-1"
+```
+
+---
+
 ## Hooks
 
 Wrap tasks with `before` and `after` tasks using hooks. This is highly useful for setup and teardown processes!
@@ -204,6 +247,25 @@ tasks:
   test-in-docker:
     uses: docker://golang:1.21
     run: go test ./...
+```
+
+### Cross-Project Tasks
+
+You can trigger a task or job inside another completely separate `castfile` using the `cast` handler. This is useful for building monorepos or dispatching sub-projects where you don't necessarily want to use the unified Workspace feature.
+
+```yaml
+tasks:
+  build-frontend:
+    uses: cast
+    with:
+      dir: ./frontend  # Path to the directory containing a castfile
+      task: build      # The task to run in that project
+      
+  deploy-backend:
+    uses: cast
+    with:
+      file: ./backend/castfile.production.yaml
+      job: deploy      # You can also trigger a full job
 ```
 
 ---
@@ -331,6 +393,43 @@ Execute a job and all its downstream jobs:
 ```bash
 cast run --job build-all
 ```
+
+---
+
+## Server Mode & Webhooks
+
+Cast can run as a long-lived server to execute background tasks on a cron schedule or respond to webhooks.
+
+Start the server:
+```bash
+cast serve
+```
+
+### Webhooks
+
+You can configure webhooks to trigger tasks or jobs remotely (e.g. from GitHub Actions).
+
+```yaml
+on:
+  webhooks:
+    deploy-hook:
+      job: deploy-all
+      secret: "my-github-secret-key"
+
+jobs:
+  deploy-all:
+    steps:
+      - run: echo "Deploying!"
+```
+
+With the server running, you can hit the webhook endpoint:
+```bash
+curl -X POST http://localhost:8080/api/webhooks/deploy-hook \
+  -H "X-Hub-Signature-256: sha256=..." \
+  -d '{"branch": "main"}'
+```
+
+Query parameters and JSON payload properties are automatically injected into the task environment as `WEBHOOK_QUERY_*` and `WEBHOOK_PAYLOAD_*`.
 
 ---
 

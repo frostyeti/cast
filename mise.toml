@@ -4,7 +4,17 @@ bun = 'latest'
 deno = 'latest'
 dotnet = "10.0.102"
 
+[tasks.build_ui]
+description = "Build the Svelte UI into static files"
+dir = "ui"
+run = """
+  bun install
+  bun run build
+"""
+
 [tasks.publish]
+depends = ["build_ui"]
+description = "Build the cast CLI with embedded UI and publish to local bin"
 run = """
   go build -o ./bin/cast ./main.go
   cp ./bin/cast "$HOME/.local/bin/cast"

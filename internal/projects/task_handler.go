@@ -33,4 +33,5 @@ func init() {
 	RegisterTaskHandler("python", runShell)
 	RegisterTaskHandler("ruby", runShell)
 	RegisterTaskHandler("docker", runDockerTask)
+	RegisterTaskHandler("cast", runCastCrossProjectTask)
 }

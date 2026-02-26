@@ -55,6 +55,7 @@
 ├── main.go             # Main application entry point
 ├── mise.toml           # Tool versions configuration
 ├── schemas/            # JSON schemas
-└── test/
-    └── e2e/            # End-to-end testing
+├── test/
+│   └── e2e/            # End-to-end testing
+└── ui/                 # Svelte embedded web UI
 ```

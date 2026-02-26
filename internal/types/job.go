@@ -16,6 +16,8 @@ type Job struct {
 	If      *string  `json:"if,omitempty"`
 	Timeout *string  `json:"timeout,omitempty"`
 	Cwd     *string  `json:"cwd,omitempty"`
+	Extends *string  `json:"extends,omitempty" yaml:"extends,omitempty"`
+	Cron    *string  `json:"cron,omitempty"`
 }
 
 func NewJob() *Job {
@@ -77,6 +79,12 @@ func (j *Job) UnmarshalYAML(node *yaml.Node) error {
 		case "cwd":
 			cwdStr := valueNode.Value
 			j.Cwd = &cwdStr
+		case "extends":
+			extendsStr := valueNode.Value
+			j.Extends = &extendsStr
+		case "cron":
+			cronStr := valueNode.Value
+			j.Cron = &cronStr
 		default:
 			return errors.YamlErrorf(keyNode, "unknown field %q in Job", keyNode.Value)
 		}
