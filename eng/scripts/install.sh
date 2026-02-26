@@ -12,23 +12,23 @@ ARCH="$(uname -m)"
 
 # Map OS
 case "$OS" in
-  Linux)    OS_NAME="Linux" ;;
-  Darwin)   OS_NAME="Darwin" ;;
-  CYGWIN*|MINGW32*|MSYS*|MINGW*) OS_NAME="Windows" ;;
+  Linux)    OS_NAME="linux" ;;
+  Darwin)   OS_NAME="darwin" ;;
+  CYGWIN*|MINGW32*|MSYS*|MINGW*) OS_NAME="windows" ;;
   *)        echo "Unsupported OS: $OS"; exit 1 ;;
 esac
 
 # Map Architecture
 case "$ARCH" in
-  x86_64|amd64) ARCH_NAME="x86_64" ;;
+  x86_64|amd64) ARCH_NAME="amd64" ;;
   arm64|aarch64) ARCH_NAME="arm64" ;;
-  i386|i686)    ARCH_NAME="i386" ;;
+  i386|i686)    ARCH_NAME="386" ;;
   *)            echo "Unsupported architecture: $ARCH"; exit 1 ;;
 esac
 
 # Default Install Directory
 if [ -z "$CAST_INSTALL_DIR" ]; then
-  if [ "$OS_NAME" = "Windows" ]; then
+  if [ "$OS_NAME" = "windows" ]; then
     CAST_INSTALL_DIR="$USERPROFILE/AppData/Local/Programs/bin"
   else
     CAST_INSTALL_DIR="$HOME/.local/bin"
@@ -40,7 +40,7 @@ mkdir -p "$CAST_INSTALL_DIR"
 
 # File extension
 EXT="tar.gz"
-if [ "$OS_NAME" = "Windows" ]; then
+if [ "$OS_NAME" = "windows" ]; then
   EXT="zip"
 fi
 
@@ -49,9 +49,10 @@ echo "Fetching latest release information for $REPO..."
 # Get download URL for latest release
 # NOTE: If jq is not available, we can use grep/awk. We'll use grep for better portability.
 if command -v jq >/dev/null 2>&1; then
-  DOWNLOAD_URL=$(curl -s "$API_URL" | jq -r ".assets[]? // empty | select(.name | contains(\"${OS_NAME}_${ARCH_NAME}.${EXT}\")) | .browser_download_url")
+  DOWNLOAD_URL=$(curl -s "$API_URL" | jq -r ".assets[]? // empty | select(.name | contains(\"cast-${OS_NAME}-${ARCH_NAME}\")) | select(.name | endswith(\".${EXT}\")) | .browser_download_url")
 else
-  DOWNLOAD_URL=$(curl -s "$API_URL" | grep -o "https://github.com/.*/releases/download/.*/cast_${OS_NAME}_${ARCH_NAME}.${EXT}")
+  # Grep logic - match exactly cast-linux-amd64-v0.1.0-alpha.0.tar.gz pattern
+  DOWNLOAD_URL=$(curl -s "$API_URL" | grep -o "https://github.com/.*/releases/download/.*/cast-${OS_NAME}-${ARCH_NAME}-v.*\.${EXT}")
 fi
 
 if [ -z "$DOWNLOAD_URL" ]; then
@@ -75,7 +76,7 @@ else
 fi
 
 # Move binary to install dir
-if [ "$OS_NAME" = "Windows" ]; then
+if [ "$OS_NAME" = "windows" ]; then
   mv "$TMP_DIR/cast.exe" "$CAST_INSTALL_DIR/"
   echo "Cast installed to $CAST_INSTALL_DIR/cast.exe"
 else

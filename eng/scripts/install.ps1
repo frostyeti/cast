@@ -8,26 +8,26 @@ $Repo = "frostyeti/cast"
 $ApiUrl = if ($Version -eq "latest") { "https://api.github.com/repos/$Repo/releases/latest" } else { "https://api.github.com/repos/$Repo/releases/tags/$Version" }
 
 # Determine OS
-$OsName = "Unknown"
+$OsName = "unknown"
 if ($IsWindows -or [System.Environment]::OSVersion.Platform -eq "Win32NT") {
-    $OsName = "Windows"
+    $OsName = "windows"
 } elseif ($IsLinux) {
-    $OsName = "Linux"
+    $OsName = "linux"
 } elseif ($IsMacOS) {
-    $OsName = "Darwin"
+    $OsName = "darwin"
 } else {
     Write-Error "Unsupported Operating System"
 }
 
 # Determine Architecture
-$ArchName = "Unknown"
+$ArchName = "unknown"
 $Arch = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture
 if ($Arch -eq [System.Runtime.InteropServices.Architecture]::X64) {
-    $ArchName = "x86_64"
+    $ArchName = "amd64"
 } elseif ($Arch -eq [System.Runtime.InteropServices.Architecture]::Arm64) {
     $ArchName = "arm64"
 } elseif ($Arch -eq [System.Runtime.InteropServices.Architecture]::X86) {
-    $ArchName = "i386"
+    $ArchName = "386"
 } else {
     Write-Error "Unsupported Architecture: $Arch"
 }
@@ -35,7 +35,7 @@ if ($Arch -eq [System.Runtime.InteropServices.Architecture]::X64) {
 # Determine Install Directory
 $InstallDir = $env:CAST_INSTALL_DIR
 if ([string]::IsNullOrEmpty($InstallDir)) {
-    if ($OsName -eq "Windows") {
+    if ($OsName -eq "windows") {
         $InstallDir = Join-Path $env:USERPROFILE "AppData\Local\Programs\bin"
     } else {
         $InstallDir = Join-Path $env:HOME ".local\bin"
@@ -46,7 +46,7 @@ if (-not (Test-Path -Path $InstallDir)) {
     New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
 }
 
-$Ext = if ($OsName -eq "Windows") { "zip" } else { "tar.gz" }
+$Ext = if ($OsName -eq "windows") { "zip" } else { "tar.gz" }
 
 Write-Host "Fetching release information for $Repo ($Version)..."
 try {
@@ -55,17 +55,17 @@ try {
     Write-Error "Failed to fetch release info: $_"
 }
 
-$AssetName = "cast_${OsName}_${ArchName}.$Ext"
-$Asset = $Release.assets | Where-Object { $_.name -eq $AssetName }
+# Search for the asset matching our updated naming convention: cast-windows-amd64-v1.0.0.zip
+$Asset = $Release.assets | Where-Object { $_.name -like "cast-${OsName}-${ArchName}-v*.$Ext" }
 
 if (-not $Asset) {
-    Write-Error "Could not find a release asset matching $AssetName"
+    Write-Error "Could not find a release asset for ${OsName} ${ArchName}"
 }
 
 $DownloadUrl = $Asset.browser_download_url
 $TmpDir = Join-Path [System.IO.Path]::GetTempPath() ([guid]::NewGuid().ToString())
 New-Item -ItemType Directory -Force -Path $TmpDir | Out-Null
-$TmpFile = Join-Path $TmpDir $AssetName
+$TmpFile = Join-Path $TmpDir $Asset.name
 
 Write-Host "Downloading Cast from $DownloadUrl..."
 Invoke-WebRequest -Uri $DownloadUrl -OutFile $TmpFile
@@ -81,13 +81,13 @@ if ($Ext -eq "zip") {
     }
 }
 
-$ExecutableName = if ($OsName -eq "Windows") { "cast.exe" } else { "cast" }
+$ExecutableName = if ($OsName -eq "windows") { "cast.exe" } else { "cast" }
 $ExtractedFile = Join-Path $TmpDir $ExecutableName
 $DestFile = Join-Path $InstallDir $ExecutableName
 
 Move-Item -Path $ExtractedFile -Destination $DestFile -Force
 
-if ($OsName -ne "Windows") {
+if ($OsName -ne "windows") {
     # Make executable on Linux/Mac
     & chmod +x $DestFile
 }
@@ -97,11 +97,11 @@ Remove-Item -Path $TmpDir -Recurse -Force
 Write-Host "Cast installed to $DestFile"
 
 # Check PATH
-$PathArray = if ($OsName -eq "Windows") { $env:PATH -split ';' } else { $env:PATH -split ':' }
+$PathArray = if ($OsName -eq "windows") { $env:PATH -split ';' } else { $env:PATH -split ':' }
 if ($InstallDir -notin $PathArray) {
     Write-Host "================================================================================" -ForegroundColor Yellow
     Write-Host "WARNING: $InstallDir is not in your PATH." -ForegroundColor Yellow
-    if ($OsName -eq "Windows") {
+    if ($OsName -eq "windows") {
         Write-Host "Please add it to your System or User Environment Variables." -ForegroundColor Yellow
     } else {
         Write-Host "Please add the following line to your shell profile (~/.bashrc, ~/.zshrc, etc.):" -ForegroundColor Yellow
