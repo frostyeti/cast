@@ -342,3 +342,58 @@ The `exec` command allows you to run ad-hoc shell commands wrapped in your `cast
 # Injects castfile environments, including command-substituted secrets!
 cast exec -- psql -U $DB_USER -h $DB_HOST
 ```
+
+---
+
+## Environment Variables Reference
+
+Cast uses several environment variables to control its behavior and share state between tasks.
+
+### CLI Configuration
+
+| Variable | Description |
+|----------|-------------|
+| `CAST_PROJECT` | Default project file path (used by `-p` flag) |
+| `CAST_CONTEXT` | Default context name (used by `-c` flag) |
+
+### Task Runtime (available within tasks)
+
+| Variable | Description |
+|----------|-------------|
+| `CAST_ENV` | Path to a temp file. Write `KEY=value` here to export env vars to subsequent tasks. |
+| `CAST_PATH` | Path to a temp file. Write a directory path here to prepend it to the `$PATH` of subsequent tasks. |
+| `CAST_OUTPUTS` | Path to a temp file for sharing outputs between tasks. |
+
+#### Using CAST_ENV for Task Communication
+```yaml
+tasks:
+  load-env:
+    run: echo "API_KEY=secret_123" >> $CAST_ENV
+
+  get-env:
+    needs: [load-env]
+    run: echo "API_KEY from env: $API_KEY"
+```
+
+#### Using CAST_PATH for PATH Updates
+```yaml
+tasks:
+  setup-path:
+    run: echo "/custom/bin" >> $CAST_PATH
+
+  use-custom-tool:
+    needs: [setup-path]
+    run: custom-tool --version
+```
+
+### Imported Module Variables
+When tasks are executed from imported remote modules, Cast injects the following variables so the task knows where it's running:
+
+| Variable | Description |
+|----------|-------------|
+| `CAST_FILE` | Path to the module's castfile |
+| `CAST_DIR` | Directory containing the module's castfile |
+| `CAST_PARENT_FILE` | Path to the parent project's castfile |
+| `CAST_PARENT_DIR` | Directory containing the parent project's castfile |
+| `CAST_MODULE_ID` | Module's unique identifier |
+| `CAST_MODULE_NAME` | Module's name |
