@@ -22,24 +22,47 @@ irm https://raw.githubusercontent.com/frostyeti/cast/master/eng/scripts/install.
 
 ## Autocompletion
 
-Cast supports shell autocompletion for tasks and jobs when you are inside a project directory!
+Cast supports shell autocompletion for tasks, jobs, and workspace projects!
 
 To enable autocompletion in your shell:
 
-**Bash:**
+### Bash
 ```bash
+# Enable for the current session
+source <(cast completion bash)
+
+# Make permanent (Linux)
 echo 'source <(cast completion bash)' >> ~/.bashrc
+
+# Make permanent (macOS)
+echo 'source <(cast completion bash)' >> ~/.bash_profile
 ```
 
-**Zsh:**
+### Zsh
 ```zsh
+# Enable for the current session
+source <(cast completion zsh)
+
+# Make permanent
 echo 'source <(cast completion zsh)' >> ~/.zshrc
 ```
 
-**PowerShell:**
+### Fish
+```fish
+# Enable for the current session
+cast completion fish | source
+
+# Make permanent
+cast completion fish > ~/.config/fish/completions/cast.fish
+```
+
+### PowerShell
 ```powershell
-cast completion powershell | Out-String
-# To make it permanent, add the above line to your PowerShell profile.
+# Enable for the current session
+cast completion powershell | Out-String | Invoke-Expression
+
+# Make permanent: Add the following line to your PowerShell profile (find it via $PROFILE)
+Invoke-Expression (&cast completion powershell)
 ```
 
 ---
