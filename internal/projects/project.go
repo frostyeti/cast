@@ -829,34 +829,91 @@ func resolveModules(p *Project, imports *types.Imports) error {
 					path = filepath.Join(path, "cast.module.yaml")
 				} else if _, err := os.Stat(filepath.Join(path, "cast.module.yml")); err == nil {
 					path = filepath.Join(path, "cast.module.yml")
+				} else if _, err := os.Stat(filepath.Join(path, "mod.yaml")); err == nil {
+					path = filepath.Join(path, "mod.yaml")
+				} else if _, err := os.Stat(filepath.Join(path, "mod.yml")); err == nil {
+					path = filepath.Join(path, "mod.yml")
 				} else if _, err := os.Stat(filepath.Join(path, "castfile.yaml")); err == nil {
 					path = filepath.Join(path, "castfile.yaml")
 				} else if _, err := os.Stat(filepath.Join(path, "castfile.yml")); err == nil {
 					path = filepath.Join(path, "castfile.yml")
+				} else if _, err := os.Stat(filepath.Join(path, "castfile")); err == nil {
+					path = filepath.Join(path, "castfile")
 				}
 			}
-		} else if !filepath.IsAbs(path) {
-			if path[0] == '.' {
-				absPath, err := filepath.Abs(filepath.Join(p.Dir, path))
-				if err != nil {
-					return err
-				}
-				path = absPath
-			} else {
-				if moduleDir != "" {
-					path = filepath.Join(moduleDir, path)
-					if _, err := os.Stat(path); err != nil {
-						path = filepath.Join(usersModuleDir, importMod.From)
+			} else if !filepath.IsAbs(path) {
+				if path[0] == '.' {
+					absPath, err := filepath.Abs(filepath.Join(p.Dir, path))
+					if err != nil {
+						return err
 					}
+					path = absPath
 				} else {
-					path = filepath.Join(usersModuleDir, importMod.From)
+					var resolvedPath string
+					
+					if moduleDir != "" {
+						testPath := filepath.Join(moduleDir, path)
+						if _, err := os.Stat(testPath); err == nil {
+							resolvedPath = testPath
+						} else if _, err := os.Stat(testPath + ".yaml"); err == nil {
+							resolvedPath = testPath + ".yaml"
+						} else if _, err := os.Stat(testPath + ".yml"); err == nil {
+							resolvedPath = testPath + ".yml"
+						}
+					}
+					
+					if resolvedPath == "" {
+						testPath := filepath.Join(usersModuleDir, importMod.From)
+						if _, err := os.Stat(testPath); err == nil {
+							resolvedPath = testPath
+						} else if _, err := os.Stat(testPath + ".yaml"); err == nil {
+							resolvedPath = testPath + ".yaml"
+						} else if _, err := os.Stat(testPath + ".yml"); err == nil {
+							resolvedPath = testPath + ".yml"
+						} else {
+							resolvedPath = testPath // default fallback to return error on
+						}
+					}
+					
+					path = resolvedPath
 				}
 			}
-		}
 
-		if _, err := os.Stat(path); err != nil {
-			return err
-		}
+			// For all resolved paths, check if it's a directory and resolve the module file
+			stat, err := os.Stat(path)
+			if err == nil && stat.IsDir() {
+				// Look for cast.module.yaml, cast.mod, or castfile.yaml
+				if _, err := os.Stat(filepath.Join(path, "cast.mod")); err == nil {
+					path = filepath.Join(path, "cast.mod")
+				} else if _, err := os.Stat(filepath.Join(path, "cast.module.yaml")); err == nil {
+					path = filepath.Join(path, "cast.module.yaml")
+				} else if _, err := os.Stat(filepath.Join(path, "cast.module.yml")); err == nil {
+					path = filepath.Join(path, "cast.module.yml")
+				} else if _, err := os.Stat(filepath.Join(path, "mod.yaml")); err == nil {
+					path = filepath.Join(path, "mod.yaml")
+				} else if _, err := os.Stat(filepath.Join(path, "mod.yml")); err == nil {
+					path = filepath.Join(path, "mod.yml")
+				} else if _, err := os.Stat(filepath.Join(path, "castfile.yaml")); err == nil {
+					path = filepath.Join(path, "castfile.yaml")
+				} else if _, err := os.Stat(filepath.Join(path, "castfile.yml")); err == nil {
+					path = filepath.Join(path, "castfile.yml")
+				} else if _, err := os.Stat(filepath.Join(path, "castfile")); err == nil {
+					path = filepath.Join(path, "castfile")
+				}
+			}
+
+			// Now also handle when path is passed without extension (e.g. "docker" -> "docker.yaml")
+			if _, err := os.Stat(path); err != nil {
+				if _, err2 := os.Stat(path + ".yaml"); err2 == nil {
+					path = path + ".yaml"
+				} else if _, err3 := os.Stat(path + ".yml"); err3 == nil {
+					path = path + ".yml"
+				}
+			}
+
+			if _, err := os.Stat(path); err != nil {
+				return errors.Newf("failed to resolve module %s: %w", importMod.From, err)
+			}
 
 		// already imported
 		if _, exists := p.imported[path]; exists {
@@ -864,13 +921,13 @@ func resolveModules(p *Project, imports *types.Imports) error {
 		}
 
 		mod := types.Module{}
-		err := mod.ReadFromYaml(path)
+		err = mod.ReadFromYaml(path)
 		if err != nil {
 			return err
 		}
 
 		if mod.Imports != nil && len(*mod.Imports) > 0 {
-			err := resolveModules(p, mod.Imports)
+			err = resolveModules(p, mod.Imports)
 			if err != nil {
 				return err
 			}

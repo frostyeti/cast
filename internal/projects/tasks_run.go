@@ -174,59 +174,46 @@ func (p *Project) RunTask(params RunTasksParams) ([]*TaskResult, error) {
 			outWriter = os.Stdout
 		}
 
-		if len(task.DotEnv) > 0 {
-			for _, envFile := range task.DotEnv {
-				if !filepath.IsAbs(envFile) {
-					absPath, err := paths.ResolvePath(p.Dir, envFile)
-					if err != nil {
-						fmt.Fprintf(outWriter, "\n\x1b[1m%s\x1b[22m \x1b[31m(failed)\x1b[0m\n", name)
-						err = errors.Newf("failed to resolve dotenv file %s for task %s: %w", envFile, task.Name, err)
-						fmt.Fprintf(outWriter, "\x1b[31m%v\x1b[0m\n", err)
-						res.Fail(err)
-						hasFailed = true
-						results = append(results, res)
-						continue
-					}
-					envFile = absPath
-				}
-
-				if paths.IsFile(envFile) {
-					data, err := os.ReadFile(envFile)
-					if err != nil {
-						fmt.Fprintf(outWriter, "\n\x1b[1m%s\x1b[22m \x1b[31m(failed)\x1b[0m\n", name)
-						err = errors.Newf("failed to read dotenv file %s for task %s: %w", envFile, task.Name, err)
-						fmt.Fprintf(outWriter, "\x1b[31m%v\x1b[0m\n", err)
-						res.Fail(err)
-						hasFailed = true
-						results = append(results, res)
-						continue
+			if len(task.DotEnv) > 0 {
+				for _, envFile := range task.DotEnv {
+					optional := false
+					if strings.HasPrefix(envFile, "?") {
+						optional = true
+						envFile = envFile[1:]
+					} else if strings.HasSuffix(envFile, "?") {
+						optional = true
+						envFile = envFile[:len(envFile)-1]
 					}
 
-					doc, err := dotenv.Parse(string(data))
-					if err != nil {
-						err := errors.Newf("failed to parse dotenv file %s for task %s: %w", envFile, task.Name, err)
-						fmt.Fprintf(outWriter, "\n\x1b[1m%s\x1b[22m \x1b[31m(failed)\x1b[0m\n", name)
-						fmt.Fprintf(outWriter, "\x1b[31m%v\x1b[0m\n", err)
-						res.Fail(err)
-						hasFailed = true
-						results = append(results, res)
-						continue
-					}
-
-					for _, node := range doc.ToArray() {
-						if node.Type != dotenv.VARIABLE {
-							continue
-						}
-
-						key := node.Key
-						value := node.Value
-						if key == nil || *key == "" {
-							continue
-						}
-
-						v, err := env.ExpandWithOptions(value, opts)
+					if !filepath.IsAbs(envFile) {
+						absPath, err := paths.ResolvePath(p.Dir, envFile)
 						if err != nil {
-							err := errors.Newf("failed to expand variable %s from dotenv file %s for task %s: %w", *key, envFile, task.Name, err)
+							fmt.Fprintf(outWriter, "\n\x1b[1m%s\x1b[22m \x1b[31m(failed)\x1b[0m\n", name)
+							err = errors.Newf("failed to resolve dotenv file %s for task %s: %w", envFile, task.Name, err)
+							fmt.Fprintf(outWriter, "\x1b[31m%v\x1b[0m\n", err)
+							res.Fail(err)
+							hasFailed = true
+							results = append(results, res)
+							continue
+						}
+						envFile = absPath
+					}
+
+					if paths.IsFile(envFile) {
+						data, err := os.ReadFile(envFile)
+						if err != nil {
+							fmt.Fprintf(outWriter, "\n\x1b[1m%s\x1b[22m \x1b[31m(failed)\x1b[0m\n", name)
+							err = errors.Newf("failed to read dotenv file %s for task %s: %w", envFile, task.Name, err)
+							fmt.Fprintf(outWriter, "\x1b[31m%v\x1b[0m\n", err)
+							res.Fail(err)
+							hasFailed = true
+							results = append(results, res)
+							continue
+						}
+
+						doc, err := dotenv.Parse(string(data))
+						if err != nil {
+							err := errors.Newf("failed to parse dotenv file %s for task %s: %w", envFile, task.Name, err)
 							fmt.Fprintf(outWriter, "\n\x1b[1m%s\x1b[22m \x1b[31m(failed)\x1b[0m\n", name)
 							fmt.Fprintf(outWriter, "\x1b[31m%v\x1b[0m\n", err)
 							res.Fail(err)
@@ -235,19 +222,44 @@ func (p *Project) RunTask(params RunTasksParams) ([]*TaskResult, error) {
 							continue
 						}
 
-						e.Set(*key, v)
+						for _, node := range doc.ToArray() {
+							if node.Type != dotenv.VARIABLE {
+								continue
+							}
+
+							key := node.Key
+							value := node.Value
+							if key == nil || *key == "" {
+								continue
+							}
+
+							v, err := env.ExpandWithOptions(value, opts)
+							if err != nil {
+								err := errors.Newf("failed to expand variable %s from dotenv file %s for task %s: %w", *key, envFile, task.Name, err)
+								fmt.Fprintf(outWriter, "\n\x1b[1m%s\x1b[22m \x1b[31m(failed)\x1b[0m\n", name)
+								fmt.Fprintf(outWriter, "\x1b[31m%v\x1b[0m\n", err)
+								res.Fail(err)
+								hasFailed = true
+								results = append(results, res)
+								continue
+							}
+
+							e.Set(*key, v)
+						}
+					} else {
+						if optional {
+							continue
+						}
+						err := errors.Newf("dotenv file %s does not exist for task %s", envFile, task.Name)
+						fmt.Fprintf(outWriter, "\n\x1b[1m%s\x1b[22m \x1b[31m(failed)\x1b[0m\n", name)
+						fmt.Fprintf(outWriter, "\x1b[31m%v\x1b[0m\n", err)
+						res.Fail(err)
+						hasFailed = true
+						results = append(results, res)
+						continue
 					}
-				} else {
-					err := errors.Newf("dotenv file %s does not exist for task %s", envFile, task.Name)
-					fmt.Fprintf(outWriter, "\n\x1b[1m%s\x1b[22m \x1b[31m(failed)\x1b[0m\n", name)
-					fmt.Fprintf(outWriter, "\x1b[31m%v\x1b[0m\n", err)
-					res.Fail(err)
-					hasFailed = true
-					results = append(results, res)
-					continue
 				}
 			}
-		}
 
 		for _, k := range task.Env.Keys() {
 			value := task.Env.Get(k)
