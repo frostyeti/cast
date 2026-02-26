@@ -162,7 +162,7 @@ modules:
 	runCmd := exec.Command("timeout", "10", binPath, "test:dummy")
 	runCmd.Dir = tmpDir
 	output, err := runCmd.CombinedOutput()
-	
+
 	// We expect it to fail cloning
 	if err == nil {
 		t.Errorf("Expected failure for non-existent git repo, but got success")

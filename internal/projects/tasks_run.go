@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"html/template"
+	"io"
 	"os"
 	"path/filepath"
 	"slices"
@@ -27,6 +28,8 @@ type RunTasksParams struct {
 	ContextName string
 	Args        []string
 	ProjectName string
+	Stdout      io.Writer
+	Stderr      io.Writer
 }
 
 func (p *Project) RunTask(params RunTasksParams) ([]*TaskResult, error) {
@@ -129,14 +132,19 @@ func (p *Project) RunTask(params RunTasksParams) ([]*TaskResult, error) {
 			Keys:                e.Keys(),
 		}
 
+		outWriter := params.Stdout
+		if outWriter == nil {
+			outWriter = os.Stdout
+		}
+
 		if len(task.DotEnv) > 0 {
 			for _, envFile := range task.DotEnv {
 				if !filepath.IsAbs(envFile) {
 					absPath, err := paths.ResolvePath(p.Dir, envFile)
 					if err != nil {
-						os.Stdout.WriteString("\n\x1b[1m" + name + "\x1b[22m \x1b[31m(failed)\x1b[0m\n")
+						fmt.Fprintf(outWriter, "\n\x1b[1m%s\x1b[22m \x1b[31m(failed)\x1b[0m\n", name)
 						err = errors.Newf("failed to resolve dotenv file %s for task %s: %w", envFile, task.Name, err)
-						os.Stdout.WriteString(fmt.Sprintf("\x1b[31m%v\x1b[0m\n", err))
+						fmt.Fprintf(outWriter, "\x1b[31m%v\x1b[0m\n", err)
 						res.Fail(err)
 						hasFailed = true
 						results = append(results, res)
@@ -148,9 +156,9 @@ func (p *Project) RunTask(params RunTasksParams) ([]*TaskResult, error) {
 				if paths.IsFile(envFile) {
 					data, err := os.ReadFile(envFile)
 					if err != nil {
-						os.Stdout.WriteString("\n\x1b[1m" + name + "\x1b[22m \x1b[31m(failed)\x1b[0m\n")
+						fmt.Fprintf(outWriter, "\n\x1b[1m%s\x1b[22m \x1b[31m(failed)\x1b[0m\n", name)
 						err = errors.Newf("failed to read dotenv file %s for task %s: %w", envFile, task.Name, err)
-						os.Stdout.WriteString(fmt.Sprintf("\x1b[31m%v\x1b[0m\n", err))
+						fmt.Fprintf(outWriter, "\x1b[31m%v\x1b[0m\n", err)
 						res.Fail(err)
 						hasFailed = true
 						results = append(results, res)
@@ -160,8 +168,8 @@ func (p *Project) RunTask(params RunTasksParams) ([]*TaskResult, error) {
 					doc, err := dotenv.Parse(string(data))
 					if err != nil {
 						err := errors.Newf("failed to parse dotenv file %s for task %s: %w", envFile, task.Name, err)
-						os.Stdout.WriteString("\n\x1b[1m" + name + "\x1b[22m \x1b[31m(failed)\x1b[0m\n")
-						os.Stdout.WriteString(fmt.Sprintf("\x1b[31m%v\x1b[0m\n", err))
+						fmt.Fprintf(outWriter, "\n\x1b[1m%s\x1b[22m \x1b[31m(failed)\x1b[0m\n", name)
+						fmt.Fprintf(outWriter, "\x1b[31m%v\x1b[0m\n", err)
 						res.Fail(err)
 						hasFailed = true
 						results = append(results, res)
@@ -182,8 +190,8 @@ func (p *Project) RunTask(params RunTasksParams) ([]*TaskResult, error) {
 						v, err := env.ExpandWithOptions(value, opts)
 						if err != nil {
 							err := errors.Newf("failed to expand variable %s from dotenv file %s for task %s: %w", *key, envFile, task.Name, err)
-							os.Stdout.WriteString("\n\x1b[1m" + name + "\x1b[22m \x1b[31m(failed)\x1b[0m\n")
-							os.Stdout.WriteString(fmt.Sprintf("\x1b[31m%v\x1b[0m\n", err))
+							fmt.Fprintf(outWriter, "\n\x1b[1m%s\x1b[22m \x1b[31m(failed)\x1b[0m\n", name)
+							fmt.Fprintf(outWriter, "\x1b[31m%v\x1b[0m\n", err)
 							res.Fail(err)
 							hasFailed = true
 							results = append(results, res)
@@ -194,8 +202,8 @@ func (p *Project) RunTask(params RunTasksParams) ([]*TaskResult, error) {
 					}
 				} else {
 					err := errors.Newf("dotenv file %s does not exist for task %s", envFile, task.Name)
-					os.Stdout.WriteString("\n\x1b[1m" + name + "\x1b[22m \x1b[31m(failed)\x1b[0m\n")
-					os.Stdout.WriteString(fmt.Sprintf("\x1b[31m%v\x1b[0m\n", err))
+					fmt.Fprintf(outWriter, "\n\x1b[1m%s\x1b[22m \x1b[31m(failed)\x1b[0m\n", name)
+					fmt.Fprintf(outWriter, "\x1b[31m%v\x1b[0m\n", err)
 					res.Fail(err)
 					hasFailed = true
 					results = append(results, res)
@@ -209,8 +217,8 @@ func (p *Project) RunTask(params RunTasksParams) ([]*TaskResult, error) {
 			v, err := env.ExpandWithOptions(value, opts)
 			if err != nil {
 				err := errors.Newf("failed to expand env variable %s for task %s: %w", k, task.Name, err)
-				os.Stdout.WriteString("\n\x1b[1m" + name + "\x1b[22m \x1b[31m(failed)\x1b[0m\n")
-				os.Stdout.WriteString(fmt.Sprintf("\x1b[31m%v\x1b[0m\n", err))
+				fmt.Fprintf(outWriter, "\n\x1b[1m%s\x1b[22m \x1b[31m(failed)\x1b[0m\n", name)
+				fmt.Fprintf(outWriter, "\x1b[31m%v\x1b[0m\n", err)
 				res.Fail(err)
 				hasFailed = true
 				results = append(results, res)
@@ -271,8 +279,8 @@ func (p *Project) RunTask(params RunTasksParams) ([]*TaskResult, error) {
 		if task.Force != nil {
 			value, err := eval.Eval(*task.Force, scope.ToMap())
 			if err != nil {
-				os.Stdout.WriteString("\n\x1b[1m" + name + "\x1b[22m \x1b[31m(failed)\x1b[0m\n")
-				os.Stdout.WriteString(fmt.Sprintf("\x1b[31m%v\x1b[0m\n", err))
+				fmt.Fprintf(outWriter, "\n\x1b[1m%s\x1b[22m \x1b[31m(failed)\x1b[0m\n", name)
+				fmt.Fprintf(outWriter, "\x1b[31m%v\x1b[0m\n", err)
 				res.Fail(err)
 				hasFailed = true
 				results = append(results, res)
@@ -284,8 +292,8 @@ func (p *Project) RunTask(params RunTasksParams) ([]*TaskResult, error) {
 		if task.If != nil {
 			value, err := eval.Eval(*task.If, scope.ToMap())
 			if err != nil {
-				os.Stdout.WriteString("\n\x1b[1m" + name + "\x1b[22m \x1b[31m(failed)\x1b[0m\n")
-				os.Stdout.WriteString(fmt.Sprintf("\x1b[31m%v\x1b[0m\n", err))
+				fmt.Fprintf(outWriter, "\n\x1b[1m%s\x1b[22m \x1b[31m(failed)\x1b[0m\n", name)
+				fmt.Fprintf(outWriter, "\x1b[31m%v\x1b[0m\n", err)
 				res.Fail(err)
 				hasFailed = true
 				results = append(results, res)
@@ -299,7 +307,7 @@ func (p *Project) RunTask(params RunTasksParams) ([]*TaskResult, error) {
 		if !pred && !force {
 			res.Status = runstatus.Skipped
 			results = append(results, res)
-			os.Stdout.WriteString("\x1b[1m" + name + "\x1b[22m (skipped)\n")
+			fmt.Fprintf(outWriter, "\x1b[1m%s\x1b[22m (skipped)\n", name)
 			continue
 		}
 
@@ -307,8 +315,8 @@ func (p *Project) RunTask(params RunTasksParams) ([]*TaskResult, error) {
 			tmpl, err := template.New("run").Funcs(sprig.FuncMap()).Parse(m.Run)
 			if err != nil {
 				err := errors.Newf("failed to evaluate template in run for task %s: %w", task.Name, err)
-				os.Stdout.WriteString("\n\x1b[1m" + name + "\x1b[22m \x1b[31m(failed)\x1b[0m\n")
-				os.Stdout.WriteString(fmt.Sprintf("\x1b[31m%v\x1b[0m\n", err))
+				fmt.Fprintf(outWriter, "\n\x1b[1m%s\x1b[22m \x1b[31m(failed)\x1b[0m\n", name)
+				fmt.Fprintf(outWriter, "\x1b[31m%v\x1b[0m\n", err)
 				res.Fail(err)
 				results = append(results, res)
 				continue
@@ -317,8 +325,8 @@ func (p *Project) RunTask(params RunTasksParams) ([]*TaskResult, error) {
 			err = tmpl.Execute(sb, scope.ToMap())
 			if err != nil {
 				err := errors.Newf("failed to evaluate template in run for task %s: %w", task.Name, err)
-				os.Stdout.WriteString("\n\x1b[1m" + name + "\x1b[22m \x1b[31m(failed)\x1b[0m\n")
-				os.Stdout.WriteString(fmt.Sprintf("\x1b[31m%v\x1b[0m\n", err))
+				fmt.Fprintf(outWriter, "\n\x1b[1m%s\x1b[22m \x1b[31m(failed)\x1b[0m\n", name)
+				fmt.Fprintf(outWriter, "\x1b[31m%v\x1b[0m\n", err)
 				res.Fail(err)
 				results = append(results, res)
 				continue
@@ -331,8 +339,8 @@ func (p *Project) RunTask(params RunTasksParams) ([]*TaskResult, error) {
 			tmpl, err := template.New("cwd").Funcs(sprig.FuncMap()).Parse(m.Cwd)
 			if err != nil {
 				err := errors.Newf("failed to evaluate cwd for task %s: %w", task.Name, err)
-				os.Stdout.WriteString("\n\x1b[1m" + name + "\x1b[22m \x1b[31m(failed)\x1b[0m\n")
-				os.Stdout.WriteString(fmt.Sprintf("\x1b[31m%v\x1b[0m\n", err))
+				fmt.Fprintf(outWriter, "\n\x1b[1m%s\x1b[22m \x1b[31m(failed)\x1b[0m\n", name)
+				fmt.Fprintf(outWriter, "\x1b[31m%v\x1b[0m\n", err)
 				res.Fail(err)
 				results = append(results, res)
 				continue
@@ -341,8 +349,8 @@ func (p *Project) RunTask(params RunTasksParams) ([]*TaskResult, error) {
 			err = tmpl.Execute(sb, scope.ToMap())
 			if err != nil {
 				err := errors.Newf("failed to evaluate cwd for task %s: %w", task.Name, err)
-				os.Stdout.WriteString("\n\x1b[1m" + name + "\x1b[22m \x1b[31m(failed)\x1b[0m\n")
-				os.Stdout.WriteString(fmt.Sprintf("\x1b[31m%v\x1b[0m\n", err))
+				fmt.Fprintf(outWriter, "\n\x1b[1m%s\x1b[22m \x1b[31m(failed)\x1b[0m\n", name)
+				fmt.Fprintf(outWriter, "\x1b[31m%v\x1b[0m\n", err)
 				res.Fail(err)
 				results = append(results, res)
 				continue
@@ -355,8 +363,8 @@ func (p *Project) RunTask(params RunTasksParams) ([]*TaskResult, error) {
 			cwd, err := env.ExpandWithOptions(m.Cwd, opts)
 			if err != nil {
 				err := errors.Newf("failed to evaluate cwd for task %s: %w", task.Name, err)
-				os.Stdout.WriteString("\n\x1b[1m" + name + "\x1b[22m \x1b[31m(failed)\x1b[0m\n")
-				os.Stdout.WriteString(fmt.Sprintf("\x1b[31m%v\x1b[0m\n", err))
+				fmt.Fprintf(outWriter, "\n\x1b[1m%s\x1b[22m \x1b[31m(failed)\x1b[0m\n", name)
+				fmt.Fprintf(outWriter, "\x1b[31m%v\x1b[0m\n", err)
 				res.Fail(err)
 				results = append(results, res)
 				continue
@@ -374,8 +382,8 @@ func (p *Project) RunTask(params RunTasksParams) ([]*TaskResult, error) {
 				timeoutStr, err := eval.EvalAsString(to, scope.ToMap())
 				if err != nil {
 					err := errors.Newf("failed to evaluate timeout for task %s: %w", task.Name, err)
-					os.Stdout.WriteString("\n\x1b[1m" + name + "\x1b[22m \x1b[31m(failed)\x1b[0m\n")
-					os.Stdout.WriteString(fmt.Sprintf("\x1b[31m%v\x1b[0m\n", err))
+					fmt.Fprintf(outWriter, "\n\x1b[1m%s\x1b[22m \x1b[31m(failed)\x1b[0m\n", name)
+					fmt.Fprintf(outWriter, "\x1b[31m%v\x1b[0m\n", err)
 					res.Fail(err)
 					results = append(results, res)
 					continue
@@ -386,8 +394,8 @@ func (p *Project) RunTask(params RunTasksParams) ([]*TaskResult, error) {
 			timeout, err = time.ParseDuration(to)
 			if err != nil {
 				err := errors.Newf("failed to parse task %s timeout %s: %w", task.Name, to, err)
-				os.Stdout.WriteString("\n\x1b[1m" + name + "\x1b[22m \x1b[31m(failed)\x1b[0m\n")
-				os.Stdout.WriteString(fmt.Sprintf("\x1b[31m%v\x1b[0m\n", err))
+				fmt.Fprintf(outWriter, "\n\x1b[1m%s\x1b[22m \x1b[31m(failed)\x1b[0m\n", name)
+				fmt.Fprintf(outWriter, "\x1b[31m%v\x1b[0m\n", err)
 				res.Fail(err)
 				results = append(results, res)
 				continue
@@ -397,18 +405,18 @@ func (p *Project) RunTask(params RunTasksParams) ([]*TaskResult, error) {
 		if hasFailed && !force {
 			res.Status = runstatus.Skipped
 			results = append(results, res)
-			os.Stdout.WriteString("\x1b[1m" + name + "\x1b[22m (skipped)\n")
+			fmt.Fprintf(outWriter, "\x1b[1m%s\x1b[22m (skipped)\n", name)
 			continue
 		}
 
 		handler, ok := GetTaskHandler(uses)
 		if !ok {
 			if IsRemoteTask(uses) {
-				handler = runDenoTask
+				handler = runRemoteTask
 			} else {
 				err := errors.Newf("unable to find task handler for %s using %s", task.Name, uses)
-				os.Stdout.WriteString("\n\x1b[1m" + name + "\x1b[22m \x1b[31m(failed)\x1b[0m\n")
-				os.Stdout.WriteString(fmt.Sprintf("\x1b[31m%v\x1b[0m\n", err))
+				fmt.Fprintf(outWriter, "\n\x1b[1m%s\x1b[22m \x1b[31m(failed)\x1b[0m\n", name)
+				fmt.Fprintf(outWriter, "\x1b[31m%v\x1b[0m\n", err)
 				res.Fail(err)
 				results = append(results, res)
 				continue
@@ -431,9 +439,18 @@ func (p *Project) RunTask(params RunTasksParams) ([]*TaskResult, error) {
 			Args:        task.Args,
 			ContextName: params.ContextName,
 			Outputs:     globalOutputs,
+			Stdout:      params.Stdout,
+			Stderr:      params.Stderr,
 		}
 
-		os.Stdout.WriteString("\n\x1b[1m" + name + "\x1b[22m\n")
+		if ctx.Stdout == nil {
+			ctx.Stdout = os.Stdout
+		}
+		if ctx.Stderr == nil {
+			ctx.Stderr = os.Stderr
+		}
+
+		fmt.Fprintf(outWriter, "\n\x1b[1m%s\x1b[22m\n", name)
 
 		// Run handler in a goroutine to support timeout
 		resultChan := make(chan *TaskResult, 1)
@@ -453,7 +470,7 @@ func (p *Project) RunTask(params RunTasksParams) ([]*TaskResult, error) {
 				r2 = NewTaskResult()
 				r2.Status = runstatus.Cancelled
 				r2.Err = errors.Newf("task %s timed out after %s", task.Name, timeout)
-				os.Stdout.WriteString(fmt.Sprintf("\x1b[33m%s (timed out after %s)\x1b[0m\n", name, timeout))
+				fmt.Fprintf(outWriter, "\x1b[33m%s (timed out after %s)\x1b[0m\n", name, timeout)
 			}
 		} else {
 			// No timeout, wait indefinitely
@@ -464,7 +481,7 @@ func (p *Project) RunTask(params RunTasksParams) ([]*TaskResult, error) {
 
 		if r2.Status == runstatus.Error || r2.Status == runstatus.Cancelled {
 			err := r2.Err
-			os.Stdout.WriteString(fmt.Sprintf("\x1b[31m%v\x1b[0m\n", err))
+			fmt.Fprintf(outWriter, "\x1b[31m%v\x1b[0m\n", err)
 
 			hasFailed = true
 		}

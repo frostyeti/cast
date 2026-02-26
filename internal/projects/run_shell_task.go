@@ -119,7 +119,7 @@ func runShell(ctx TaskContext) *TaskResult {
 	}
 
 	res.Start()
-	o, err := cmd.Run()
+	o, err := runCmdWithContext(ctx, cmd)
 	if err != nil {
 		return res.Fail(err)
 	}
@@ -215,7 +215,7 @@ func runXPlatShell(script string, ctx TaskContext) *TaskResult {
 			cmd.WithEnvMap(ctx.Task.Env)
 			cmd.WithCwd(ctx.Task.Cwd)
 
-			o, err := cmd.Run()
+			o, err := runCmdWithContext(ctx, cmd)
 			if err != nil {
 				return res.Fail(err)
 			}
@@ -296,7 +296,13 @@ func runXPlatShell(script string, ctx TaskContext) *TaskResult {
 
 				nextOp = ops[j]
 				i = j
-				o, err := pipe.Run()
+				o, err := pipe.Output()
+				if len(o.Stdout) > 0 {
+					ctx.Stdout.Write(o.Stdout)
+				}
+				if len(o.Stderr) > 0 {
+					ctx.Stderr.Write(o.Stderr)
+				}
 				if o.Code == 0 {
 					if nextOp.IsOr() {
 						return res.Ok()
@@ -322,7 +328,7 @@ func runXPlatShell(script string, ctx TaskContext) *TaskResult {
 			cmd3.WithEnvMap(ctx.Task.Env)
 			cmd3.WithCwd(ctx.Task.Cwd)
 
-			o, err := cmd3.Run()
+			o, err := runCmdWithContext(ctx, cmd3)
 			if o.Code == 0 {
 				if lastOperation == "||" || op.IsOr() {
 					return res.Ok()

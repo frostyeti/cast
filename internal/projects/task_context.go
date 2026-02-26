@@ -2,6 +2,7 @@ package projects
 
 import (
 	"context"
+	"io"
 
 	"github.com/frostyeti/cast/internal/types"
 )
@@ -14,4 +15,6 @@ type TaskContext struct {
 	Args        []string
 	ContextName string
 	Outputs     map[string]any
+	Stdout      io.Writer
+	Stderr      io.Writer
 }

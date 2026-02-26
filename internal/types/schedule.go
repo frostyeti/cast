@@ -6,8 +6,8 @@ import (
 )
 
 type Schedule struct {
-	Cron     string  `yaml:"cron,omitempty" json:"cron,omitempty"`
-	Timezone *string `yaml:"timezone,omitempty" json:"timezone,omitempty"`
+	Crons    []string `yaml:"crons,omitempty" json:"crons,omitempty"`
+	Timezone *string  `yaml:"timezone,omitempty" json:"timezone,omitempty"`
 }
 
 func (s *Schedule) UnmarshalYAML(value *yaml.Node) error {
@@ -20,8 +20,18 @@ func (s *Schedule) UnmarshalYAML(value *yaml.Node) error {
 		valueNode := value.Content[i+1]
 
 		switch keyNode.Value {
-		case "cron":
-			s.Cron = valueNode.Value
+		case "crons":
+			if valueNode.Kind == yaml.ScalarNode {
+				s.Crons = append(s.Crons, valueNode.Value)
+			} else if valueNode.Kind == yaml.SequenceNode {
+				for _, item := range valueNode.Content {
+					s.Crons = append(s.Crons, item.Value)
+				}
+			} else {
+				return errors.NewYamlError(valueNode, "crons must be a string or sequence of strings")
+			}
+		case "cron": // backward compatibility
+			s.Crons = append(s.Crons, valueNode.Value)
 		case "timezone":
 			var timezone string
 			err := valueNode.Decode(&timezone)

@@ -6,14 +6,16 @@ import (
 )
 
 type Job struct {
-	Id      string  `json:"id"`
-	Name    string  `json:"name,omitempty"`
-	Desc    string  `json:"desc,omitempty"`
-	Needs   *Needs  `json:"needs,omitempty"`
-	Steps   []Step  `json:"steps,omitempty"`
-	If      *string `json:"if,omitempty"`
-	Timeout *string `json:"timeout,omitempty"`
-	Cwd     *string `json:"cwd,omitempty"`
+	Id      string   `json:"id"`
+	Name    string   `json:"name,omitempty"`
+	Desc    string   `json:"desc,omitempty"`
+	Needs   *Needs   `json:"needs,omitempty"`
+	Steps   []Step   `json:"steps,omitempty"`
+	Env     *Env     `json:"env,omitempty"`
+	DotEnv  *DotEnvs `json:"dotenv,omitempty"`
+	If      *string  `json:"if,omitempty"`
+	Timeout *string  `json:"timeout,omitempty"`
+	Cwd     *string  `json:"cwd,omitempty"`
 }
 
 func NewJob() *Job {
@@ -54,6 +56,18 @@ func (j *Job) UnmarshalYAML(node *yaml.Node) error {
 				return errors.YamlErrorf(valueNode, "failed to decode steps: %v", err)
 			}
 			j.Steps = steps
+		case "env":
+			j.Env = NewEnv()
+			err := valueNode.Decode(j.Env)
+			if err != nil {
+				return errors.YamlErrorf(valueNode, "failed to decode job env: %v", err)
+			}
+		case "dotenv":
+			j.DotEnv = &DotEnvs{}
+			err := valueNode.Decode(j.DotEnv)
+			if err != nil {
+				return errors.YamlErrorf(valueNode, "failed to decode job dotenv: %v", err)
+			}
 		case "if":
 			ifStr := valueNode.Value
 			j.If = &ifStr

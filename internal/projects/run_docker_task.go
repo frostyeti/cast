@@ -90,7 +90,7 @@ func runDockerTask(ctx TaskContext) *TaskResult {
 	cmd := exec.New("docker", args...)
 	cmd.WithCwd(cwd)
 
-	o, err := cmd.Run()
+	o, err := runCmdWithContext(ctx, cmd)
 	if err != nil {
 		return res.Fail(err)
 	}

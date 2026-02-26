@@ -23,6 +23,7 @@ type Project struct {
 	Meta           *Meta      `yaml:"meta,omitempty" json:"meta,omitempty"`
 	Workspace      *Workspace `yaml:"workspace,omitempty" json:"workspace,omitempty"`
 	Tasks          *TaskMap   `yaml:"tasks,omitempty" json:"tasks,omitempty"`
+	Jobs           *JobMap    `yaml:"jobs,omitempty" json:"jobs,omitempty"`
 	Inventory      *Inventory `yaml:"inventory,omitempty" json:"inventory,omitempty"`
 	TrustedSources []string   `yaml:"trusted_sources,omitempty" json:"trusted_sources,omitempty"`
 	Modules        []Module   `yaml:"-" json:"-"`
@@ -129,6 +130,12 @@ func (p *Project) UnmarshalYAML(node *yaml.Node) error {
 			err := valueNode.Decode(p.Tasks)
 			if err != nil {
 				return errors.NewYamlError(valueNode, "failed to decode project tasks: "+err.Error())
+			}
+		case "jobs":
+			p.Jobs = NewJobMap()
+			err := valueNode.Decode(p.Jobs)
+			if err != nil {
+				return errors.NewYamlError(valueNode, "failed to decode project jobs: "+err.Error())
 			}
 		case "inventory":
 			p.Inventory = &Inventory{}

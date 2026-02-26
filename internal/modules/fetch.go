@@ -24,7 +24,7 @@ func FetchModule(projectDir string, uri string) (string, error) {
 	// Key directory by hash of URI to ensure unique version keys
 	hash := sha256.Sum256([]byte(uri))
 	hashStr := hex.EncodeToString(hash[:])
-	
+
 	// Create human readable suffix based on uri if possible
 	parts := strings.Split(uri, "/")
 	namePart := parts[len(parts)-1]
@@ -116,7 +116,7 @@ func fetchTarball(uri, targetDir string) error {
 		// Some tarballs contain a root directory, we might want to strip it,
 		// but for simplicity we just extract as is.
 		targetPath := filepath.Join(targetDir, header.Name)
-		
+
 		// Protect against directory traversal
 		if !strings.HasPrefix(targetPath, filepath.Clean(targetDir)+string(os.PathSeparator)) && targetPath != filepath.Clean(targetDir) {
 			continue

@@ -47,6 +47,7 @@ var tasksRunCmd = &cobra.Command{
 		contextName := env.Get("CAST_CONTEXT")
 
 		flags.StringP("project", "p", projectFile, "Path to the project file (castfile.yaml)")
+		flags.StringP("job", "j", "", "Job name to run (executes job and downstream jobs if any)")
 		flags.StringArrayP("dotenv", "E", []string{}, "List of dotenv files to load")
 		flags.StringToStringP("env", "e", map[string]string{}, "List of environment variables to set")
 		flags.StringP("context", "c", contextName, "Context to use.")
@@ -246,6 +247,22 @@ var tasksRunCmd = &cobra.Command{
 			return errors.Newf("failed to initialize project %s: %w", projectFile, err)
 		}
 
+		jobName, _ := flags.GetString("job")
+		if jobName != "" {
+			runParams := projects.RunJobParams{
+				JobID:         jobName,
+				Context:       cmd.Context(),
+				ContextName:   contextName,
+				Args:          remainingArgs,
+				RunDownstream: true,
+			}
+			err = project.RunJob(runParams)
+			if err != nil {
+				return errors.Newf("failure running job %s: %w", jobName, err)
+			}
+			return nil
+		}
+
 		params := projects.RunTasksParams{
 			Targets:     targets,
 			Args:        remainingArgs,
@@ -279,6 +296,7 @@ func init() {
 	project := env.Get("CAST_PROJECT")
 	context := env.Get("CAST_CONTEXT")
 
+	tasksRunCmd.Flags().StringP("job", "j", "", "Job name to run (executes job and downstream jobs if any)")
 	tasksRunCmd.Flags().StringP("project", "p", project, "Path to the project file (castfile.yaml)")
 	tasksRunCmd.Flags().StringP("context", "c", context, "Context name to use from the project")
 	tasksRunCmd.Flags().StringArrayP("dotenv", "E", []string{}, "List of dotenv files to load")

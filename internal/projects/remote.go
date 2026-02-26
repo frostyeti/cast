@@ -19,7 +19,8 @@ func IsRemoteTask(uses string) bool {
 		strings.HasPrefix(uses, "http://") ||
 		strings.HasPrefix(uses, "@") ||
 		strings.HasPrefix(uses, "jsr:") ||
-		strings.HasPrefix(uses, "npm:")
+		strings.HasPrefix(uses, "npm:") ||
+		strings.HasPrefix(uses, "file://")
 }
 
 // FetchRemoteTask resolves and downloads a remote task, returning the local file path to the entrypoint module.
@@ -55,9 +56,9 @@ func FetchRemoteTask(p *Project, uses string, trustedSources []string) (string, 
 	// "Download dependencies to a central cache directory (e.g., .cast/tasks/)."
 	// "Git Tasks: Perform a shallow git clone or download a tarball for the specified tag/version."
 
-	if strings.HasPrefix(uses, "github.com/") {
+	if strings.HasPrefix(uses, "github.com/") || strings.HasPrefix(uses, "file://") {
 		// e.g., github.com/user/repo@v1.0.0
-		// or github.com/user/repo/path/to/task@v1.0.0
+		// or file:///path/to/repo@v1.0.0
 		parts := strings.Split(uses, "@")
 		repoPath := parts[0]
 		version := "main"
@@ -65,30 +66,52 @@ func FetchRemoteTask(p *Project, uses string, trustedSources []string) (string, 
 			version = parts[1]
 		}
 
-		repoParts := strings.Split(repoPath, "/")
-		if len(repoParts) < 3 {
-			return "", errors.New("invalid github URI")
+		var repoURL string
+		var subPath string
+
+		if strings.HasPrefix(uses, "github.com/") {
+			repoParts := strings.Split(repoPath, "/")
+			if len(repoParts) < 3 {
+				return "", errors.New("invalid github URI")
+			}
+			repoURL = fmt.Sprintf("https://%s/%s/%s.git", repoParts[0], repoParts[1], repoParts[2])
+			if len(repoParts) > 3 {
+				subPath = strings.Join(repoParts[3:], "/")
+			}
+		} else {
+			// file:// protocol handling for local git repos
+			repoURL = strings.TrimPrefix(repoPath, "file://")
+			// It's just a local directory, subPath would be anything after the git root, but we can assume no subpath for basic local testing for now
+			// Or we could try to resolve it properly.
+			// Let's keep it simple for testing: assume no subPath for file://
 		}
-		repoURL := fmt.Sprintf("https://%s/%s/%s.git", repoParts[0], repoParts[1], repoParts[2])
+
+		resolvedVersion := resolveGitVersion(repoURL, version)
 
 		if _, err := os.Stat(taskDir); os.IsNotExist(err) {
-			cmd := exec.New("git", "clone", "--depth", "1", "--branch", version, repoURL, taskDir)
+			cmd := exec.New("git", "clone", "--depth", "1", "--branch", resolvedVersion, repoURL, taskDir)
 			out, err := cmd.Run()
 			if err != nil || out.Code != 0 {
-				return "", errors.Newf("failed to clone remote task: %v\n%s", err, out.Stdout)
+				// If branch failed, try cloning without branch (some repositories might not have standard main/master)
+				cmd = exec.New("git", "clone", "--depth", "1", repoURL, taskDir)
+				out, err = cmd.Run()
+				if err != nil || out.Code != 0 {
+					return "", errors.Newf("failed to clone remote task: %v\n%s", err, out.Stdout)
+				}
 			}
 		}
 
-		// The entrypoint could be a specific file in the path
-		subPath := ""
-		if len(repoParts) > 3 {
-			subPath = strings.Join(repoParts[3:], "/")
-		}
-
 		entryFile := filepath.Join(taskDir, subPath)
-		// Check if it's a directory, if so look for standard entrypoints
+		// Check if it's a directory, if so look for casttask.yaml or standard entrypoints
 		stat, err := os.Stat(entryFile)
 		if err == nil && stat.IsDir() {
+			if _, err := os.Stat(filepath.Join(entryFile, "casttask.yaml")); err == nil {
+				return filepath.Join(entryFile, "casttask.yaml"), nil
+			}
+			if _, err := os.Stat(filepath.Join(entryFile, "casttask.yml")); err == nil {
+				return filepath.Join(entryFile, "casttask.yml"), nil
+			}
+
 			entrypoints := []string{
 				"mod.ts", "main.ts", "index.ts",
 				"mod.js", "main.js", "index.js",
