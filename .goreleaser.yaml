@@ -19,12 +19,7 @@ builds:
 
 archives:
   - format: tar.gz
-    name_template: >-
-      {{ .ProjectName }}_
-      {{- title .Os }}_
-      {{- if eq .Arch "amd64" }}x86_64
-      {{- else if eq .Arch "386" }}i386
-      {{- else }}{{ .Arch }}{{ end }}
+    name_template: "{{ .ProjectName }}-{{ .Os }}-{{ .Arch }}-v{{ .Version }}"
     format_overrides:
       - goos: windows
         format: zip
@@ -36,24 +31,13 @@ nfpms:
     maintainer: frostyeti
     description: A powerful task runner and automation tool
     license: MIT
+    file_name_template: "{{ .ProjectName }}-{{ .Os }}-{{ .Arch }}-v{{ .Version }}"
     formats:
       - deb
       - rpm
       - apk
       - archlinux
     bindir: /usr/bin
-
-brews:
-  - repository:
-      owner: frostyeti
-      name: homebrew-tap
-      token: "{{ .Env.GITHUB_TOKEN }}"
-    directory: Formula
-    homepage: "https://github.com/frostyeti/cast"
-    description: "A powerful task runner and automation tool"
-    license: "MIT"
-    test: |
-      system "#{bin}/cast --version"
 
 # Docker builds can be enabled later
 # dockers:

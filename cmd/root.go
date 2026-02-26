@@ -12,12 +12,13 @@ import (
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:     "cast",
-	Version: "0.0.0",
-	Short:   "Cast is a task runner and automation tool",
-	Long:    "Cast is a task runner and automation tool",
-	Args:    cobra.ArbitraryArgs,
-	RunE:    tasksRunCmd.RunE,
+	Use:               "cast",
+	Version:           "0.0.0",
+	Short:             "Cast is a task runner and automation tool",
+	Long:              "Cast is a task runner and automation tool",
+	Args:              cobra.ArbitraryArgs,
+	ValidArgsFunction: provideProjectCompletion,
+	RunE:              tasksRunCmd.RunE,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	// Run: func(cmd *cobra.Command, args []string) { },

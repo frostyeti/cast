@@ -14,10 +14,11 @@ import (
 )
 
 var tasksRunCmd = &cobra.Command{
-	Use:     "run [task name]",
-	Aliases: []string{"r"},
-	Short:   "Run a specific task in the project",
-	Long:    `Run a specific task defined in the project's configuration.`,
+	Use:               "run [task name]",
+	Aliases:           []string{"r"},
+	Short:             "Run a specific task in the project",
+	Long:              `Run a specific task defined in the project's configuration.`,
+	ValidArgsFunction: provideProjectCompletion,
 	RunE: func(cmd *cobra.Command, a []string) error {
 		args := os.Args
 
