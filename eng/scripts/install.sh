@@ -14,8 +14,14 @@ ARCH="$(uname -m)"
 case "$OS" in
   Linux)    OS_NAME="linux" ;;
   Darwin)   OS_NAME="darwin" ;;
-  CYGWIN*|MINGW32*|MSYS*|MINGW*) OS_NAME="windows" ;;
-  *)        echo "Unsupported OS: $OS"; exit 1 ;;
+  CYGWIN*|MINGW32*|MSYS*|MINGW*|Windows_NT) OS_NAME="windows" ;;
+  *)        
+    if [ "$OS" = "Windows_NT" ] || [ "$WINDIR" != "" ]; then
+        OS_NAME="windows"
+    else
+        echo "Unsupported OS: $OS"; exit 1 
+    fi
+    ;;
 esac
 
 # Map Architecture
