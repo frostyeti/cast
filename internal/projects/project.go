@@ -588,6 +588,10 @@ func (p *Project) Init() error {
 					job.Timeout = baseJob.Timeout
 				}
 
+				if (job.Cron == nil || *job.Cron == "") && baseJob.Cron != nil {
+					job.Cron = baseJob.Cron
+				}
+
 				if (job.Cwd == nil || *job.Cwd == "") && baseJob.Cwd != nil {
 					job.Cwd = baseJob.Cwd
 				}
