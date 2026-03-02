@@ -13,7 +13,7 @@ import (
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:               "cast",
-	Version:           "0.0.0",
+	Version:           "0.2.0-alpha.2",
 	Short:             "Cast is a task runner and automation tool",
 	Long:              "Cast is a task runner and automation tool",
 	Args:              cobra.ArbitraryArgs,
