@@ -28,7 +28,8 @@ func VerifyChecksumAndRefresh(p *Project) bool {
 	if castDir == "" {
 		castDir = filepath.Join(p.Dir, ".cast") // Fallback just in case
 	}
-	stateFile := filepath.Join(castDir, "state.json")
+	cacheDir := filepath.Join(castDir, "cache")
+	stateFile := filepath.Join(cacheDir, "state.json")
 
 	// Get a stable relative name for this file based on CastDir's parent
 	rootDir := filepath.Dir(castDir)
@@ -69,13 +70,18 @@ func VerifyChecksumAndRefresh(p *Project) bool {
 	}
 
 	if !matches {
-		// Clear local cache for tasks if checksum doesn't match
-		os.RemoveAll(filepath.Join(castDir, "tasks"))
-		// Clear local cache for modules if checksum doesn't match
-		os.RemoveAll(filepath.Join(castDir, "modules"))
+		// Clear local cache for remote tasks if checksum doesn't match
+		os.RemoveAll(filepath.Join(cacheDir, "tasks"))
+		// Clear local cache for remote modules if checksum doesn't match
+		os.RemoveAll(filepath.Join(cacheDir, "modules"))
 
-		// Write new state
-		os.MkdirAll(castDir, 0755)
+		// Write new state - only create cache dir if it doesn't exist
+		if _, err := os.Stat(cacheDir); os.IsNotExist(err) {
+			os.MkdirAll(cacheDir, 0755)
+			// Create .gitignore to ignore cached files
+			gitignorePath := filepath.Join(cacheDir, ".gitignore")
+			os.WriteFile(gitignorePath, []byte("*\n"), 0644)
+		}
 		state.Checksum = hashStr
 		state.Files[relFile] = hashStr
 		if bytes, err := json.MarshalIndent(state, "", "  "); err == nil {

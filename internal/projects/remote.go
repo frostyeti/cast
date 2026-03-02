@@ -71,7 +71,7 @@ func FetchRemoteTask(p *Project, uses string, trustedSources []string) (string, 
 
 	VerifyChecksumAndRefresh(p)
 
-	cacheDir := filepath.Join(p.Dir, ".cast", "tasks")
+	cacheDir := filepath.Join(p.Dir, ".cast", "cache", "tasks")
 	os.MkdirAll(cacheDir, 0755)
 
 	hash := sha256.Sum256([]byte(uses))
@@ -80,7 +80,7 @@ func FetchRemoteTask(p *Project, uses string, trustedSources []string) (string, 
 
 	// If it's a JSR or NPM package, Deno handles it natively via import "jsr:..." or "npm:..."
 	// We don't necessarily need to download it manually if Deno wrapper will do it, but the prompt says:
-	// "Download dependencies to a central cache directory (e.g., .cast/tasks/)."
+	// "Download dependencies to a central cache directory (e.g., .cast/cache/tasks/)."
 	// "Git Tasks: Perform a shallow git clone or download a tarball for the specified tag/version."
 
 	if strings.HasPrefix(uses, "github.com/") || strings.HasPrefix(uses, "file://") {

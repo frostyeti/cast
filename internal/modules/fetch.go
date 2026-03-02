@@ -17,8 +17,8 @@ import (
 )
 
 func FetchModule(projectDir string, uri string) (string, error) {
-	// Create cache directory .cast/modules
-	modulesDir := filepath.Join(projectDir, ".cast", "modules")
+	// Create cache directory .cast/cache/modules
+	modulesDir := filepath.Join(projectDir, ".cast", "cache", "modules")
 	os.MkdirAll(modulesDir, 0755)
 
 	// Key directory by hash of URI to ensure unique version keys

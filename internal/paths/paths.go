@@ -185,6 +185,7 @@ func ImportDirs(cwd string) []string {
 	localPath := filepath.Join(cwd, ".local", "share", "cast", "modules")
 	dirs := []string{
 		localPath,
+		// User-created modules in .cast/modules (not deleted on checksum change)
 		filepath.Join(cwd, ".cast", "modules"),
 	}
 

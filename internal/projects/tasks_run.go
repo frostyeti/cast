@@ -36,6 +36,7 @@ type RunTasksParams struct {
 func findFallbackTask(uses string, projectDir string) (string, bool) {
 	tasksDir := os.Getenv("CAST_TASKS_DIR")
 	if tasksDir == "" {
+		// User-created tasks in .cast/tasks (not deleted on checksum change)
 		tasksDir = filepath.Join(projectDir, ".cast", "tasks")
 	} else if !filepath.IsAbs(tasksDir) {
 		tasksDir = filepath.Join(projectDir, tasksDir)
