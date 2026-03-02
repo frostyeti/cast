@@ -1195,6 +1195,13 @@ func setupEnv(p *Project) error {
 
 	p.Env = e
 
+	// Set CAST_CONTEXT environment variable so tasks know which context is active
+	if p.ContextName != "" {
+		p.Env.Set("CAST_CONTEXT", p.ContextName)
+	} else {
+		p.Env.Set("CAST_CONTEXT", "default")
+	}
+
 	return nil
 }
 
