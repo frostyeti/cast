@@ -1,8 +1,6 @@
 [tools]
-go = '1.26'
-bun = 'latest'
-deno = 'latest'
-dotnet = "10.0.102"
+go = '1.26.1'
+deno = '2.7.4'
 
 [tasks.build_ui]
 description = "Build the Svelte UI into static files"
