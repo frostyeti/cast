@@ -122,6 +122,14 @@ func (p *Project) UnmarshalYAML(node *yaml.Node) error {
 			}
 		case "workspace":
 			p.Workspace = &Workspace{}
+			if valueNode.Kind == yaml.ScalarNode {
+				if valueNode.Value == "true" || valueNode.Value == "1" {
+					p.Workspace = &Workspace{
+						Include: []string{},
+					}
+				}
+			}
+
 			err := valueNode.Decode(p.Workspace)
 			if err != nil {
 				return errors.NewYamlError(valueNode, "failed to decode project workspace: "+err.Error())

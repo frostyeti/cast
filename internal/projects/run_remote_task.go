@@ -35,10 +35,11 @@ func runRemoteTask(ctx TaskContext) *TaskResult {
 		return runCastTask(ctx, modulePath)
 	}
 
-	return runDenoWrapper(ctx, modulePath)
+	// TODO: get default js runtime
+	return runDenoWrapper(ctx, modulePath, "deno")
 }
 
-func runDenoWrapper(ctx TaskContext, modulePath string) *TaskResult {
+func runDenoWrapper(ctx TaskContext, modulePath string, jsRuntime string) *TaskResult {
 	res := NewTaskResult()
 	res.Start()
 
@@ -46,7 +47,9 @@ func runDenoWrapper(ctx TaskContext, modulePath string) *TaskResult {
 
 	// Generate wrapper script
 	tmpDir := os.TempDir()
-	wrapperPath := filepath.Join(tmpDir, fmt.Sprintf("cast_deno_wrapper_%s.ts", ctx.Task.Id))
+	wrapperPath := filepath.Join(tmpDir, fmt.Sprintf("cast_wrapper_%s.ts", ctx.Task.Id))
+
+	e := ctx.Task.Env
 
 	// Convert `With` arguments to JSON to inject them into the script or Deno.env
 	withJSON, _ := json.Marshal(ctx.Task.With)
@@ -56,16 +59,10 @@ func runDenoWrapper(ctx TaskContext, modulePath string) *TaskResult {
 
 	// We pass args as stringified JSON to process.env or just in the wrapper script.
 	wrapperContent := fmt.Sprintf(`
+import process from "node:process";
 import * as mod from "%s";
 
-const withArgs = %s;
-
-// Inject into Deno.env
-for (const [key, value] of Object.entries(withArgs)) {
-	if (value !== null && value !== undefined) {
-		Deno.env.set(key, typeof value === 'string' ? value : JSON.stringify(value));
-	}
-}
+globalThis["inputs"] = %s;
 
 async function main() {
 	try {
@@ -86,7 +83,7 @@ async function main() {
 
 main().catch(err => {
 	console.error(err);
-	Deno.exit(1);
+	process.exit(1);
 });
 `, modulePath, string(withJSON))
 
@@ -96,29 +93,24 @@ main().catch(err => {
 	}
 	defer os.Remove(wrapperPath)
 
-	// Ensure deno is available via mise/exec
-	denoExe, _ := exec.Find("deno", nil)
-	if denoExe == "" {
-		denoExe = "deno"
+	args := []string{"run", "-A"}
+	exeName := "deno"
+
+	if jsRuntime == "bun" {
+		exeName = "bun"
+		args = []string{}
 	}
 
-	args := []string{"run", "-A"}
-
-	// Add environment variables
-	for k, v := range ctx.Task.Env {
-		os.Setenv(k, v) // we can set it in current process or cmd.Env
+	// Ensure deno is available via mise/exec
+	denoExe, _ := exec.Find(exeName, nil)
+	if denoExe == "" {
+		denoExe = exeName
 	}
 
 	args = append(args, wrapperPath)
 	cmd := exec.New(denoExe, args...)
 	cmd.WithCwd(cwd)
-
-	// Copy Env variables to cmd.Env
-	mergedEnv := os.Environ()
-	for k, v := range ctx.Task.Env {
-		mergedEnv = append(mergedEnv, fmt.Sprintf("%s=%s", k, v))
-	}
-	cmd.WithEnv(mergedEnv...)
+	cmd.WithEnvMap(e)
 
 	o, err := runCmdWithContext(ctx, cmd)
 	if err != nil {

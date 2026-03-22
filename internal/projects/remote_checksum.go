@@ -50,7 +50,7 @@ func VerifyChecksumAndRefresh(p *Project) bool {
 
 	if stateData, err := os.ReadFile(stateFile); err == nil {
 		if json.Unmarshal(stateData, &state) == nil {
-			if state.Files != nil && len(state.Files) > 0 {
+			if len(state.Files) > 0 {
 				if fileHash, exists := state.Files[relFile]; exists && fileHash == hashStr {
 					matches = true
 				}

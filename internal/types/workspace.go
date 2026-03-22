@@ -13,7 +13,13 @@ type Workspace struct {
 
 func (w *Workspace) UnmarshalYAML(node *yaml.Node) error {
 	if w == nil {
-		w = &Workspace{}
+		w = &Workspace{
+			Include: []string{},
+			Exclude: []string{},
+		}
+	} else {
+		w.Include = []string{}
+		w.Exclude = []string{}
 	}
 
 	if node.Kind != yaml.MappingNode {

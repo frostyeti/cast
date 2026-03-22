@@ -14,7 +14,7 @@ type CastTaskInput struct {
 }
 
 type CastTaskRuns struct {
-	Using string   `yaml:"using" json:"using"` // "docker", "deno", "composite"
+	Using string   `yaml:"using" json:"using"` // "docker", "deno", "composite", "bun"
 	Image string   `yaml:"image,omitempty" json:"image,omitempty"`
 	Args  []string `yaml:"args,omitempty" json:"args,omitempty"`
 	Main  string   `yaml:"main,omitempty" json:"main,omitempty"` // For deno scripts

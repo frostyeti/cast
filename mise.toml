@@ -17,3 +17,9 @@ run = """
   go build -o ./bin/cast ./main.go
   cp ./bin/cast "$HOME/.local/bin/cast"
 """
+
+[tasks.build]
+depends = "build_ui"
+run =  """
+  go build -o ./bin/cast ./main.go
+"""

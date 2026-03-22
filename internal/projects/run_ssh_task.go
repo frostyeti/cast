@@ -2,16 +2,20 @@ package projects
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"fmt"
+	"html/template"
 	"io"
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
 
+	"github.com/Masterminds/sprig"
 	"github.com/frostyeti/cast/internal/errors"
 	"github.com/frostyeti/cast/internal/paths"
 	goph "github.com/melbahja/goph"
@@ -283,6 +287,31 @@ func runSSHTarget(ctx context.Context, taskContext TaskContext, target HostInfo)
 
 	run = taskContext.Task.Run
 
+	// if template is gotmpl, use it to render the script
+	if taskContext.Task.Template == "gotmpl" {
+		envMap := taskContext.Task.Env
+		data := map[string]interface{}{
+			"env":    envMap,
+			"target": target,
+			"os":     runtime.GOOS,
+			"arch":   runtime.GOARCH,
+		}
+
+		tmp, err := template.New(taskContext.Task.Id).Funcs(sprig.FuncMap()).Parse(run)
+		if err != nil {
+			return errors.New("failed to parse template file: " + err.Error())
+		}
+
+		var buf bytes.Buffer
+
+		err = tmp.Execute(&buf, data)
+		if err != nil {
+			return errors.New("failed to parse template file: " + err.Error())
+		}
+
+		run = buf.String()
+	}
+
 	if identity == "" && password != "" {
 		auth = goph.Password(password)
 	} else if goph.HasAgent() {
@@ -335,9 +364,9 @@ func runSSHTarget(ctx context.Context, taskContext TaskContext, target HostInfo)
 
 	go func() {
 
-		if len(taskContext.Task.Env) > 0 {
-			// only set env values that are explicitly set in the task
-			for k, v := range taskContext.Task.Env {
+		if taskContext.Schema.Env != nil {
+			for _, k := range taskContext.Schema.Env.Keys() {
+				v := taskContext.Task.Env[k]
 				sess.Setenv(k, v)
 			}
 		}

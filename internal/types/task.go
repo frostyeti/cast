@@ -158,6 +158,7 @@ func (t *Task) UnmarshalYAML(value *yaml.Node) error {
 				return errors.NewYamlError(valueNode, "expected yaml scalar for 'uses' field")
 			}
 			t.Uses = &valueNode.Value
+
 		case "args":
 			if valueNode.Kind != yaml.SequenceNode {
 				return errors.NewYamlError(valueNode, "expected yaml sequence for 'args' field")

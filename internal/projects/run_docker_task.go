@@ -46,9 +46,12 @@ func runDockerTask(ctx TaskContext) *TaskResult {
 		}
 	}
 
-	// Environment variables
-	for k, v := range ctx.Task.Env {
-		args = append(args, "-e", fmt.Sprintf("%s=%s", k, v))
+	// only set environment variables explicitly set on the task
+	if ctx.Schema.Env != nil {
+		for _, k := range ctx.Schema.Env.Keys() {
+			v := ctx.Task.Env[k]
+			args = append(args, "-e", fmt.Sprintf("%s=%s", k, v))
+		}
 	}
 
 	// Add the image
@@ -56,19 +59,18 @@ func runDockerTask(ctx TaskContext) *TaskResult {
 
 	// Command + Arguments
 	cmdValue, ok := ctx.Task.With["command"]
+	commandSet := false
 	if ok {
+		commandSet = true
 		if cmdStr, ok := cmdValue.(string); ok && cmdStr != "" {
 			args = append(args, cmdStr)
 		}
 	}
 
-	// Add run property logic if command isn't present
-	if ctx.Task.Run != "" && cmdValue == nil {
-		args = append(args, "sh", "-c", ctx.Task.Run)
-	}
-
 	argsValue, ok := ctx.Task.With["args"]
+	argsSet := false
 	if ok {
+		argsSet = true
 		if argsList, ok := argsValue.([]any); ok {
 			for _, arg := range argsList {
 				if argStr, ok := arg.(string); ok {
@@ -82,10 +84,21 @@ func runDockerTask(ctx TaskContext) *TaskResult {
 		}
 	}
 
+	if !commandSet && !argsSet {
+		// Add run property logic if command isn't present
+		if ctx.Task.Run != "" && cmdValue == nil {
+			runArgs := cmdargs.Split(ctx.Task.Run)
+			args = append(args, runArgs.ToArray()...)
+		}
+	}
+
 	// Log image usage
 	trackDockerImage(image)
 
 	res.Start()
+
+	// TODO: print command, but remove any secrets
+	// cliArgs := cmdargs.New(args).String()
 
 	cmd := exec.New("docker", args...)
 	cmd.WithCwd(cwd)

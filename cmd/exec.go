@@ -16,8 +16,8 @@ import (
 var tasksExecCmd = &cobra.Command{
 	Use:     "exec VAR=NAME [command] [-- args...]",
 	Aliases: []string{"x"},
-	Short:   "Run a specific task in the project",
-	Long:    `Run a specific task defined in the project's configuration.`,
+	Short:   "Executes a shell commmand using the environment variables from the local castfile",
+	Long:    `Executes a shell command using the environment variables for the local castfile.`,
 	Args:    cobra.ArbitraryArgs,
 	RunE: func(cmd *cobra.Command, a []string) error {
 		args := os.Args

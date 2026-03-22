@@ -9,6 +9,12 @@ tasks:
       done
       echo "Task done!"
 
+  test:
+    uses: docker
+    with:
+      image: golang:1.26
+    run: go test ./...
+
 jobs:
   slow_job:
     cron: "*/1 * * * *"

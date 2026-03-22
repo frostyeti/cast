@@ -39,6 +39,10 @@ func runScpTask(ctx TaskContext) *TaskResult {
 					files = append(files, str)
 				}
 			}
+		} else if arr2, ok := v.([]string); ok {
+			for _, item := range arr2 {
+				files = append(files, item)
+			}
 		}
 	}
 

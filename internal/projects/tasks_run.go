@@ -133,6 +133,7 @@ func (p *Project) RunTask(params RunTasksParams) ([]*TaskResult, error) {
 	for _, task := range taskList {
 
 		e := projectEnv.Clone()
+
 		res := NewTaskResult()
 		m := &Task{
 			Id:   task.Id,
@@ -167,6 +168,7 @@ func (p *Project) RunTask(params RunTasksParams) ([]*TaskResult, error) {
 		opts := &env.ExpandOptions{
 			Get: func(key string) string {
 				value := e.Get(key)
+
 				return value
 			},
 			Set: func(key, value string) error {
