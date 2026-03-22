@@ -5,6 +5,8 @@ import (
 	"go.yaml.in/yaml/v4"
 )
 
+// Workspace configures nested project discovery and aliases.
+// Include and exclude use glob patterns.
 type Workspace struct {
 	Include []string          `yaml:"include,omitempty" json:"include,omitempty"`
 	Exclude []string          `yaml:"exclude,omitempty" json:"exclude,omitempty"`
@@ -20,6 +22,10 @@ func (w *Workspace) UnmarshalYAML(node *yaml.Node) error {
 	} else {
 		w.Include = []string{}
 		w.Exclude = []string{}
+	}
+
+	if node.Kind == yaml.DocumentNode && len(node.Content) > 0 {
+		node = node.Content[0]
 	}
 
 	if node.Kind != yaml.MappingNode {

@@ -46,6 +46,7 @@ func (w *With) UnmarshalYAML(value *yaml.Node) error {
 	return nil
 }
 
+// NewWith returns an initialized with-map.
 func NewWith() *With {
 	return &With{
 		values: map[string]interface{}{},

@@ -5,17 +5,23 @@ import (
 	"go.yaml.in/yaml/v4"
 )
 
+// DotEnv defines a dotenv file entry with optional OS and context scoping.
 type DotEnv struct {
 	Path     string   `yaml:"path" json:"path,omitempty"`
 	OS       string   `yaml:"os,omitempty" json:"os,omitempty"`
 	Contexts []string `yaml:"contexts,omitempty" json:"contexts,omitempty"`
 }
 
+// DotEnvs is an ordered list of dotenv file entries.
 type DotEnvs []DotEnv
 
 func (d *DotEnvs) UnmarshalYAML(node *yaml.Node) error {
 	if d == nil {
 		d = &DotEnvs{}
+	}
+
+	if node.Kind == yaml.DocumentNode && len(node.Content) > 0 {
+		node = node.Content[0]
 	}
 
 	if node.Kind == yaml.ScalarNode {
@@ -45,6 +51,10 @@ func (d *DotEnvs) UnmarshalYAML(node *yaml.Node) error {
 func (de *DotEnv) UnmarshalYAML(node *yaml.Node) error {
 	if de == nil {
 		de = &DotEnv{}
+	}
+
+	if node.Kind == yaml.DocumentNode && len(node.Content) > 0 {
+		node = node.Content[0]
 	}
 
 	if node.Kind == yaml.ScalarNode {

@@ -8,6 +8,8 @@ import (
 	"go.yaml.in/yaml/v4"
 )
 
+// Meta preserves ordered arbitrary metadata values.
+// Meta preserves ordered arbitrary metadata values.
 type Meta struct {
 	values map[string]interface{}
 	keys   []string
@@ -18,6 +20,7 @@ type jsonMeta struct {
 	Keys   []string               `json:"keys"`
 }
 
+// NewMeta returns an initialized metadata map.
 func NewMeta() *Meta {
 	return &Meta{
 		values: make(map[string]interface{}),
@@ -231,6 +234,10 @@ func (m *Meta) IsEmpty() bool {
 func (m *Meta) UnmarshalYAML(node *yaml.Node) error {
 	if m == nil {
 		m = &Meta{}
+	}
+
+	if node.Kind == yaml.DocumentNode && len(node.Content) > 0 {
+		node = node.Content[0]
 	}
 	if m.values == nil {
 		m.values = make(map[string]interface{})

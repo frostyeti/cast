@@ -1,5 +1,6 @@
 package types
 
+// Input describes a remote task input parameter.
 type Input struct {
 	Id        string   `json:"id"`
 	Desc      *string  `json:"description,omitempty"`

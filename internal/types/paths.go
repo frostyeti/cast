@@ -5,17 +5,24 @@ import (
 	"go.yaml.in/yaml/v4"
 )
 
+// EnvPath defines a platform-aware PATH entry.
+// OS may be linux, darwin, windows, or omitted for all platforms.
 type EnvPath struct {
 	Path   string `json:"path,omitempty"`
 	OS     string `json:"os,omitempty"`
 	Append bool   `json:"append,omitempty"`
 }
 
+// Paths is an ordered list of PATH entries.
 type Paths []EnvPath
 
 func (p *Paths) UnmarshalYAML(node *yaml.Node) error {
 	if p == nil {
 		p = &Paths{}
+	}
+
+	if node.Kind == yaml.DocumentNode && len(node.Content) > 0 {
+		node = node.Content[0]
 	}
 
 	if node.Kind == yaml.SequenceNode {
@@ -42,6 +49,10 @@ func (p *Paths) UnmarshalYAML(node *yaml.Node) error {
 func (ep *EnvPath) UnmarshalYAML(node *yaml.Node) error {
 	if ep == nil {
 		ep = &EnvPath{}
+	}
+
+	if node.Kind == yaml.DocumentNode && len(node.Content) > 0 {
+		node = node.Content[0]
 	}
 
 	if node.Kind == yaml.ScalarNode {

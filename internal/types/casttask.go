@@ -7,12 +7,16 @@ import (
 	"go.yaml.in/yaml/v4"
 )
 
+// CastTaskInput defines a remote task input parameter.
+// Required inputs must be supplied by the caller.
 type CastTaskInput struct {
 	Description string `yaml:"description,omitempty" json:"description,omitempty"`
 	Default     string `yaml:"default,omitempty" json:"default,omitempty"`
 	Required    bool   `yaml:"required,omitempty" json:"required,omitempty"`
 }
 
+// CastTaskRuns declares how a remote task is executed.
+// Using supports docker, deno, bun, or composite.
 type CastTaskRuns struct {
 	Using string   `yaml:"using" json:"using"` // "docker", "deno", "composite", "bun"
 	Image string   `yaml:"image,omitempty" json:"image,omitempty"`
@@ -21,6 +25,8 @@ type CastTaskRuns struct {
 	Steps []Task   `yaml:"steps,omitempty" json:"steps,omitempty"`
 }
 
+// CastTask is an experimental remote task definition.
+// It is stored in a cast.task file.
 type CastTask struct {
 	Name        string                   `yaml:"name" json:"name"`
 	Description string                   `yaml:"description,omitempty" json:"description,omitempty"`

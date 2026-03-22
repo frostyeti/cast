@@ -5,6 +5,7 @@ import (
 	"go.yaml.in/yaml/v4"
 )
 
+// Import describes a module or task source to load into a project.
 type Import struct {
 	From         string   `json:"from,omitempty"`
 	Namespace    string   `json:"namespace,omitempty"`
@@ -12,6 +13,7 @@ type Import struct {
 	resolvedFrom string   `json:"-"`
 }
 
+// Imports is an ordered list of import definitions.
 type Imports []Import
 
 func (i *Imports) UnmarshalYAML(node *yaml.Node) error {
@@ -44,6 +46,10 @@ func (i *Imports) UnmarshalYAML(node *yaml.Node) error {
 func (i *Import) UnmarshalYAML(node *yaml.Node) error {
 	if i == nil {
 		i = &Import{}
+	}
+
+	if node.Kind == yaml.DocumentNode && len(node.Content) > 0 {
+		node = node.Content[0]
 	}
 
 	if node.Kind == yaml.ScalarNode {
@@ -79,6 +85,9 @@ func (i *Import) UnmarshalYAML(node *yaml.Node) error {
 					}
 					tasks = append(tasks, taskNode.Value)
 				}
+				i.Tasks = tasks
+			default:
+				return errors.YamlErrorf(keyNode, "unexpected field '%s' in Import", key)
 			}
 		}
 		return nil

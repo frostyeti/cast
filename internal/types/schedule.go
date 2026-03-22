@@ -5,6 +5,8 @@ import (
 	"go.yaml.in/yaml/v4"
 )
 
+// Schedule defines cron-based triggers for a project.
+// Crons accepts a string or list of strings.
 type Schedule struct {
 	Crons    []string `yaml:"crons,omitempty" json:"crons,omitempty"`
 	Timezone *string  `yaml:"timezone,omitempty" json:"timezone,omitempty"`
@@ -13,6 +15,10 @@ type Schedule struct {
 func (s *Schedule) UnmarshalYAML(value *yaml.Node) error {
 	if s == nil {
 		s = &Schedule{}
+	}
+
+	if value.Kind == yaml.DocumentNode && len(value.Content) > 0 {
+		value = value.Content[0]
 	}
 
 	for i := 0; i < len(value.Content); i += 2 {

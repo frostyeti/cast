@@ -5,6 +5,7 @@ import (
 	"go.yaml.in/yaml/v4"
 )
 
+// ProjectConfig holds root-level parser behavior for a project.
 type ProjectConfig struct {
 	Context      *string `yaml:"context,omitempty" json:"context,omitempty"`
 	Substitution *bool   `yaml:"substitution,omitempty" json:"substitution,omitempty"`

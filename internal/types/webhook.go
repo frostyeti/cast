@@ -5,8 +5,10 @@ import (
 	"go.yaml.in/yaml/v4"
 )
 
+// Webhooks maps trigger names to webhook definitions.
 type Webhooks map[string]Webhook
 
+// Webhook is an event trigger for a job or task.
 type Webhook struct {
 	Id     string `yaml:"id,omitempty" json:"id,omitempty"`
 	Job    string `yaml:"job,omitempty" json:"job,omitempty"`
@@ -18,6 +20,10 @@ type Webhook struct {
 func (w *Webhook) UnmarshalYAML(node *yaml.Node) error {
 	if w == nil {
 		w = &Webhook{}
+	}
+
+	if node.Kind == yaml.DocumentNode && len(node.Content) > 0 {
+		node = node.Content[0]
 	}
 
 	if node.Kind != yaml.MappingNode {

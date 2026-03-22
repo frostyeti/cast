@@ -9,6 +9,7 @@ import (
 	"go.yaml.in/yaml/v4"
 )
 
+// TaskMap stores tasks in insertion order.
 type TaskMap struct {
 	values map[string]Task
 
@@ -96,6 +97,7 @@ func (t *TaskMap) UnmarshalYAML(node *yaml.Node) error {
 	return nil
 }
 
+// NewTaskMap returns an initialized task map.
 func NewTaskMap() *TaskMap {
 	return &TaskMap{
 		values: make(map[string]Task),

@@ -5,6 +5,7 @@ import (
 	"go.yaml.in/yaml/v4"
 )
 
+// Hooks enables before/after hook task references.
 type Hooks struct {
 	Before []string `json:"before,omitempty"`
 	After  []string `json:"after,omitempty"`
@@ -27,6 +28,10 @@ func (h *Hooks) init() {
 
 func (h *Hooks) UnmarshalYAML(node *yaml.Node) error {
 	h.init()
+
+	if node.Kind == yaml.DocumentNode && len(node.Content) > 0 {
+		node = node.Content[0]
+	}
 
 	if node.Kind == yaml.ScalarNode {
 		if node.Value == "true" || node.Value == "yes" {

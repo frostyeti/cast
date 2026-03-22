@@ -13,6 +13,7 @@ func TestE2E_DotnetRemoteTasks(t *testing.T) {
 	t.Log("Building cast binary...")
 	tmpDir := t.TempDir()
 	binPath := filepath.Join(tmpDir, "cast")
+	ensureDotnetShim(t, tmpDir)
 
 	buildCmd := exec.Command("go", "build", "-o", binPath, "../../main.go")
 	if output, err := buildCmd.CombinedOutput(); err != nil {
@@ -21,7 +22,7 @@ func TestE2E_DotnetRemoteTasks(t *testing.T) {
 
 	// 2. We'll use the existing test fixtures for the remote tasks
 	pwd, _ := os.Getwd()
-	fixtureGitRepo := filepath.Join(pwd, "fixtures", "cast-dotnet-git")
+	fixtureGitRepo := filepath.Join(pwd, "fixtures", "cast-dotnet")
 
 	// Create individual git repos for each task to work around remote.go's lack of file:// subpath support
 	tasks := []string{"build", "test", "pack", "publish", "clean"}
@@ -30,7 +31,10 @@ func TestE2E_DotnetRemoteTasks(t *testing.T) {
 	for _, task := range tasks {
 		repoPath := filepath.Join(tmpDir, "repo-"+task)
 		os.MkdirAll(repoPath, 0755)
-		exec.Command("cp", "-r", filepath.Join(fixtureGitRepo, task)+"/.", repoPath).Run()
+		copyCmd := exec.Command("cp", "-r", filepath.Join(fixtureGitRepo, task)+"/.", repoPath)
+		if output, err := copyCmd.CombinedOutput(); err != nil {
+			t.Fatalf("failed to copy fixture %s: %v\n%s", task, err, string(output))
+		}
 
 		runGit(t, repoPath, "init")
 		runGit(t, repoPath, "config", "user.name", "Test User")
@@ -161,4 +165,28 @@ tasks:
 	if !strings.Contains(outStr, "Running: dotnet clean DemoApp -c Release") {
 		t.Errorf("expected clean output to contain 'Running: dotnet clean DemoApp -c Release', got: %s", outStr)
 	}
+}
+
+func ensureDotnetShim(t *testing.T, dir string) {
+	if _, err := exec.LookPath("dotnet"); err == nil {
+		return
+	}
+
+	shimDir := filepath.Join(dir, "bin")
+	if err := os.MkdirAll(shimDir, 0755); err != nil {
+		t.Fatalf("failed to create dotnet shim dir: %v", err)
+	}
+
+	shimPath := filepath.Join(shimDir, "dotnet")
+	if err := os.WriteFile(shimPath, []byte("#!/bin/sh\nexit 0\n"), 0755); err != nil {
+		t.Fatalf("failed to write dotnet shim: %v", err)
+	}
+
+	pathValue := os.Getenv("PATH")
+	if pathValue != "" {
+		t.Setenv("PATH", shimDir+string(os.PathListSeparator)+pathValue)
+		return
+	}
+
+	t.Setenv("PATH", shimDir)
 }

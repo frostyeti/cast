@@ -7,6 +7,7 @@ import (
 	"go.yaml.in/yaml/v4"
 )
 
+// OsInfo describes a target operating system.
 type OsInfo struct {
 	Platform     string `json:"platform,omitempty"`
 	Arch         string `json:"arch,omitempty"`

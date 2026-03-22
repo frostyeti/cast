@@ -28,6 +28,9 @@
 - use go doc comments to document any exported functions, types, etc.
 - use go generate to generate any code that can be generated, such as mocks, etc.
 - use go releaser to automate releases and versioning.
+- When editing JSON schemas, keep them user friendly: preserve useful `description` fields, enums, examples, `anyOf`/`oneOf` shapes, and pattern constraints; prefer validating multiple supported YAML forms instead of collapsing them into `type: object`.
+- When a YAML key accepts more than one shape in code, model that explicitly in the schema and docs, and call out any compatibility or experimental caveats instead of removing the validation.
+- Document naming rules and common values in schema-friendly docs so users can discover valid `uses`, ids, aliases, and optional markers without reading the code.
 - When making new alpha/prerelease releases, DO NOT bump the minor version (e.g. v0.2.0-alpha.0). Instead, increment the alpha version number (e.g. v0.1.0-alpha.1, v0.1.0-alpha.2, etc).
 
 ## Project Structure

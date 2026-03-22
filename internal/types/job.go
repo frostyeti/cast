@@ -5,6 +5,7 @@ import (
 	"go.yaml.in/yaml/v4"
 )
 
+// Job is an experimental pipeline definition made of ordered steps.
 type Job struct {
 	Id      string   `json:"id"`
 	Name    string   `json:"name,omitempty"`
@@ -20,6 +21,7 @@ type Job struct {
 	Cron    *string  `json:"cron,omitempty"`
 }
 
+// NewJob returns an empty job.
 func NewJob() *Job {
 	return &Job{}
 }
@@ -27,6 +29,10 @@ func NewJob() *Job {
 func (j *Job) UnmarshalYAML(node *yaml.Node) error {
 	if j == nil {
 		j = &Job{}
+	}
+
+	if node.Kind == yaml.DocumentNode && len(node.Content) > 0 {
+		node = node.Content[0]
 	}
 
 	if node.Kind != yaml.MappingNode {

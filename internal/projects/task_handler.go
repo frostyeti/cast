@@ -1,15 +1,19 @@
 package projects
 
+// TaskHandler executes a task and returns its result.
 type TaskHandler func(tc TaskContext) *TaskResult
 
+// TaskHandlerRegistry maps handler names to task executors.
 type TaskHandlerRegistry map[string]TaskHandler
 
 var globalTaskHandlers = make(TaskHandlerRegistry)
 
+// RegisterTaskHandler registers a named task handler.
 func RegisterTaskHandler(name string, handler TaskHandler) {
 	globalTaskHandlers[name] = handler
 }
 
+// GetTaskHandler returns a registered task handler by name.
 func GetTaskHandler(name string) (TaskHandler, bool) {
 	handler, ok := globalTaskHandlers[name]
 	return handler, ok

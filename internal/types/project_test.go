@@ -71,3 +71,36 @@ name: Read Test Project
 		t.Errorf("expected file path '%s', got '%s'", yamlFile, p.File)
 	}
 }
+
+func TestProjectWorkspaceBoolean(t *testing.T) {
+	yamlData := `
+workspace: true
+`
+
+	var p types.Project
+	if err := yaml.Unmarshal([]byte(yamlData), &p); err != nil {
+		t.Fatalf("failed to unmarshal project workspace: %v", err)
+	}
+
+	if p.Workspace == nil {
+		t.Fatalf("expected workspace to be populated for boolean true")
+	}
+	if len(p.Workspace.Include) != 0 || len(p.Workspace.Exclude) != 0 {
+		t.Fatalf("expected empty workspace include/exclude lists")
+	}
+}
+
+func TestProjectWorkspaceBooleanFalse(t *testing.T) {
+	yamlData := `
+workspace: false
+`
+
+	var p types.Project
+	if err := yaml.Unmarshal([]byte(yamlData), &p); err != nil {
+		t.Fatalf("failed to unmarshal project workspace: %v", err)
+	}
+
+	if p.Workspace != nil {
+		t.Fatalf("expected workspace to be nil for boolean false")
+	}
+}
