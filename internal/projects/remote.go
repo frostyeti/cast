@@ -29,7 +29,69 @@ func splitVersionAndSubPath(ref string) (string, string) {
 		return ref, ""
 	}
 
+	if !looksLikeRemoteVersion(ref[:idx]) {
+		return ref, ""
+	}
+
 	return ref[:idx], ref[idx+1:]
+}
+
+func isHeadRef(ref string) bool {
+	return strings.EqualFold(strings.TrimSpace(ref), "head")
+}
+
+func isGitCommitRef(ref string) bool {
+	ref = strings.TrimSpace(ref)
+	if len(ref) < 7 || len(ref) > 40 {
+		return false
+	}
+
+	for _, r := range ref {
+		switch {
+		case r >= '0' && r <= '9':
+		case r >= 'a' && r <= 'f':
+		case r >= 'A' && r <= 'F':
+		default:
+			return false
+		}
+	}
+
+	return true
+}
+
+func looksLikeRemoteVersion(ref string) bool {
+	ref = strings.TrimSpace(ref)
+	if ref == "" {
+		return false
+	}
+
+	if isHeadRef(ref) || isGitCommitRef(ref) {
+		return true
+	}
+
+	base := ref
+	if idx := strings.IndexByte(base, '-'); idx > -1 {
+		base = base[:idx]
+	}
+
+	base = strings.TrimPrefix(strings.TrimPrefix(base, "v"), "V")
+	parts := strings.Split(base, ".")
+	if len(parts) == 0 || len(parts) > 3 {
+		return false
+	}
+
+	for _, part := range parts {
+		if part == "" {
+			return false
+		}
+		for _, r := range part {
+			if r < '0' || r > '9' {
+				return false
+			}
+		}
+	}
+
+	return true
 }
 
 func joinSubPath(base, extra string) string {
@@ -42,6 +104,54 @@ func joinSubPath(base, extra string) string {
 		return base
 	}
 	return base + "/" + extra
+}
+
+func trimGitSuffix(v string) string {
+	return strings.TrimSuffix(v, ".git")
+}
+
+func parseHostedRemoteTarget(repoPart string) (string, []string, bool) {
+	switch {
+	case strings.HasPrefix(repoPart, "github.com/"):
+		path := strings.TrimPrefix(repoPart, "github.com/")
+		parts := strings.Split(path, "/")
+		if len(parts) != 2 {
+			return "", nil, false
+		}
+		repo := trimGitSuffix(parts[1])
+		return fmt.Sprintf("https://github.com/%s/%s.git", parts[0], repo), []string{"github", parts[0], repo}, true
+	case strings.HasPrefix(repoPart, "gitlab.com/"):
+		path := strings.TrimPrefix(repoPart, "gitlab.com/")
+		parts := strings.Split(path, "/")
+		if len(parts) != 2 {
+			return "", nil, false
+		}
+		repo := trimGitSuffix(parts[1])
+		return fmt.Sprintf("https://gitlab.com/%s/%s.git", parts[0], repo), []string{"gitlab", parts[0], repo}, true
+	case strings.HasPrefix(repoPart, "dev.azure.com/"):
+		path := strings.TrimPrefix(repoPart, "dev.azure.com/")
+		parts := strings.Split(path, "/")
+		if len(parts) < 3 {
+			return "", nil, false
+		}
+
+		org := parts[0]
+		project := parts[1]
+		repo := ""
+		switch {
+		case len(parts) == 3:
+			repo = parts[2]
+		case len(parts) == 4 && parts[2] == "_git":
+			repo = parts[3]
+		default:
+			return "", nil, false
+		}
+
+		repo = trimGitSuffix(repo)
+		return fmt.Sprintf("https://dev.azure.com/%s/%s/_git/%s.git", org, project, repo), []string{"azdo", org, project, repo}, true
+	default:
+		return "", nil, false
+	}
 }
 
 func parseRemoteGitTarget(uses string) (remoteGitTarget, error) {
@@ -60,7 +170,13 @@ func parseRemoteGitTarget(uses string) (remoteGitTarget, error) {
 		result.subPath = sub
 	}
 
-	if strings.HasPrefix(repoPart, "git@") || strings.HasPrefix(repoPart, "https://") || strings.HasPrefix(repoPart, "http://") || strings.HasPrefix(repoPart, "file://") {
+	if repoURL, cacheParts, ok := parseHostedRemoteTarget(repoPart); ok {
+		result.repoURL = repoURL
+		result.cacheParts = cacheParts
+		return result, nil
+	}
+
+	if strings.HasPrefix(repoPart, "git@") || strings.HasPrefix(repoPart, "ssh://") || strings.HasPrefix(repoPart, "git+ssh://") || strings.HasPrefix(repoPart, "https://") || strings.HasPrefix(repoPart, "http://") || strings.HasPrefix(repoPart, "file://") {
 		result.repoURL = repoPart
 		if strings.HasPrefix(repoPart, "git@") && refPart == "" {
 			return result, errors.Newf("invalid remote task identifier, version required: %s", uses)
@@ -121,8 +237,13 @@ func IsRemoteTask(uses string) bool {
 		strings.HasPrefix(uses, "gitlab:") ||
 		strings.HasPrefix(uses, "azdo:") ||
 		strings.HasPrefix(uses, "git@") ||
+		strings.HasPrefix(uses, "ssh://") ||
+		strings.HasPrefix(uses, "git+ssh://") ||
 		strings.HasPrefix(uses, "https://") ||
 		strings.HasPrefix(uses, "http://") ||
+		strings.HasPrefix(uses, "github.com/") ||
+		strings.HasPrefix(uses, "gitlab.com/") ||
+		strings.HasPrefix(uses, "dev.azure.com/") ||
 		strings.HasPrefix(uses, "@") ||
 		strings.HasPrefix(uses, "jsr:") ||
 		strings.HasPrefix(uses, "npm:") ||
@@ -191,7 +312,7 @@ func FetchRemoteTask(p *Project, uses string, trustedSources []string) (string, 
 	// "Download dependencies to a central cache directory (e.g., .cast/cache/tasks/)."
 	// "Git Tasks: Perform a shallow git clone or download a tarball for the specified tag/version."
 
-	if strings.HasPrefix(uses, "git@") || strings.HasPrefix(uses, "github:") || strings.HasPrefix(uses, "gh:") || strings.HasPrefix(uses, "gitlab:") || strings.HasPrefix(uses, "gl:") || strings.HasPrefix(uses, "azdo:") || strings.HasPrefix(uses, "spell:") || strings.HasPrefix(uses, "task:") || strings.HasPrefix(uses, "file://") || strings.HasPrefix(uses, "https://") || strings.HasPrefix(uses, "http://") {
+	if strings.HasPrefix(uses, "git@") || strings.HasPrefix(uses, "ssh://") || strings.HasPrefix(uses, "git+ssh://") || strings.HasPrefix(uses, "github:") || strings.HasPrefix(uses, "gh:") || strings.HasPrefix(uses, "gitlab:") || strings.HasPrefix(uses, "gl:") || strings.HasPrefix(uses, "azdo:") || strings.HasPrefix(uses, "spell:") || strings.HasPrefix(uses, "task:") || strings.HasPrefix(uses, "file://") || strings.HasPrefix(uses, "https://") || strings.HasPrefix(uses, "http://") || strings.HasPrefix(uses, "github.com/") || strings.HasPrefix(uses, "gitlab.com/") || strings.HasPrefix(uses, "dev.azure.com/") {
 		target, err := parseRemoteGitTarget(uses)
 		if err != nil {
 			return "", err
@@ -201,7 +322,7 @@ func FetchRemoteTask(p *Project, uses string, trustedSources []string) (string, 
 			return "", errors.Newf("invalid remote task identifier, version required: %s", uses)
 		}
 
-		resolvedVersion := resolveGitVersion(target.repoURL, target.version, target.subPath)
+		resolvedVersion, cloneMode := resolveGitReference(target.repoURL, target.version, target.subPath)
 		if len(target.cacheParts) > 0 {
 			parts := append([]string{cacheDir}, target.cacheParts...)
 			parts = append(parts, resolvedVersion)
@@ -211,14 +332,34 @@ func FetchRemoteTask(p *Project, uses string, trustedSources []string) (string, 
 		repoURL := target.repoURL
 
 		if _, err := os.Stat(taskDir); os.IsNotExist(err) {
-			cmd := exec.New("git", "clone", "--depth", "1", "--branch", resolvedVersion, repoURL, taskDir)
+			var cmd *exec.Cmd
+			switch cloneMode {
+			case gitResolveCommit:
+				cmd = exec.New("git", "clone", repoURL, taskDir)
+			case gitResolveDefault:
+				cmd = exec.New("git", "clone", "--depth", "1", repoURL, taskDir)
+			default:
+				cmd = exec.New("git", "clone", "--depth", "1", "--branch", resolvedVersion, repoURL, taskDir)
+			}
 			out, err := cmd.Run()
 			if err != nil || out.Code != 0 {
-				// If branch failed, try cloning without branch (some repositories might not have standard main/master)
-				cmd = exec.New("git", "clone", "--depth", "1", repoURL, taskDir)
+				if cloneMode == gitResolveBranch {
+					// If branch failed, try cloning without branch (some repositories might not have standard main/master)
+					cmd = exec.New("git", "clone", "--depth", "1", repoURL, taskDir)
+					out, err = cmd.Run()
+					if err != nil || out.Code != 0 {
+						return "", errors.Newf("failed to clone remote task: %v\n%s", err, out.Stdout)
+					}
+				} else {
+					return "", errors.Newf("failed to clone remote task: %v\n%s", err, out.Stdout)
+				}
+			}
+
+			if cloneMode == gitResolveCommit {
+				cmd = exec.New("git", "-C", taskDir, "checkout", "--detach", resolvedVersion)
 				out, err = cmd.Run()
 				if err != nil || out.Code != 0 {
-					return "", errors.Newf("failed to clone remote task: %v\n%s", err, out.Stdout)
+					return "", errors.Newf("failed to checkout remote task commit %s: %v\n%s", resolvedVersion, err, out.Stdout)
 				}
 			}
 		}

@@ -11,6 +11,20 @@ import (
 	"github.com/frostyeti/go/exec"
 )
 
+func isCastTaskDefinitionFile(path string) bool {
+	if path == "" {
+		return false
+	}
+
+	base := filepath.Base(path)
+	switch base {
+	case "cast", "spell", "cast.task", "cast.yaml", "cast.yml", "spell.yaml", "spell.yml":
+		return true
+	}
+
+	return strings.HasSuffix(base, ".task") || strings.HasSuffix(base, ".yaml") || strings.HasSuffix(base, ".yml")
+}
+
 func runRemoteTask(ctx TaskContext) *TaskResult {
 	res := NewTaskResult()
 	res.Start()
@@ -31,7 +45,7 @@ func runRemoteTask(ctx TaskContext) *TaskResult {
 		modulePath = uses
 	}
 
-	if strings.HasSuffix(modulePath, "cast.task") || strings.HasSuffix(modulePath, "cast.yaml") || strings.HasSuffix(modulePath, ".yaml") || strings.HasSuffix(modulePath, ".yml") || strings.HasSuffix(modulePath, ".task") {
+	if isCastTaskDefinitionFile(modulePath) {
 		return runCastTask(ctx, modulePath)
 	}
 

@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://raw.githubusercontent.com/frostyeti/cast/main/schemas/cast.spell.schema.json",
+  "$id": "cast.spell.schema.json",
   "title": "Cast Task Schema",
   "description": "Experimental schema for a standalone cast.task remote definition.",
   "type": "object",

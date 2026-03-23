@@ -15,16 +15,36 @@ var gitLsRemote = func(repoURL string) (string, int, error) {
 	return string(out), 0, nil
 }
 
+type gitResolveMode int
+
+const (
+	gitResolveBranch gitResolveMode = iota
+	gitResolveDefault
+	gitResolveCommit
+)
+
 // resolveGitVersion checks if a requested version like "v1" can be resolved
 // to a specific git tag by querying the remote repository.
-func resolveGitVersion(repoURL, version, subPath string) string {
-	if version == "" || version == "main" || version == "master" {
-		return version
+func resolveGitReference(repoURL, version, subPath string) (string, gitResolveMode) {
+	if version == "" || isHeadRef(version) {
+		return "HEAD", gitResolveDefault
+	}
+
+	if isGitCommitRef(version) {
+		return version, gitResolveCommit
+	}
+
+	if version == "main" || version == "master" {
+		return version, gitResolveBranch
+	}
+
+	if !looksLikeRemoteVersion(version) {
+		return version, gitResolveBranch
 	}
 
 	stdout, code, err := gitLsRemote(repoURL)
 	if err != nil || code != 0 {
-		return version
+		return version, gitResolveBranch
 	}
 
 	lines := strings.Split(stdout, "\n")
@@ -52,6 +72,10 @@ func resolveGitVersion(repoURL, version, subPath string) string {
 					return t
 				}
 			}
+			return ""
+		}
+
+		if version == "HEAD" {
 			return ""
 		}
 
@@ -98,15 +122,20 @@ func resolveGitVersion(repoURL, version, subPath string) string {
 			}
 		}
 		if best := chooseBest(prefixed); best != "" {
-			return best
+			return best, gitResolveBranch
 		}
 	}
 
 	if best := chooseBest(tags); best != "" {
-		return best
+		return best, gitResolveBranch
 	}
 
-	return version
+	return version, gitResolveBranch
+}
+
+func resolveGitVersion(repoURL, version, subPath string) string {
+	resolved, _ := resolveGitReference(repoURL, version, subPath)
+	return resolved
 }
 
 func trimVersion(v string) string {

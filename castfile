@@ -15,6 +15,9 @@ tasks:
       image: golang:1.26
     run: go test ./...
 
+  ello:
+    uses: spell:examples/hello-world@head
+
 jobs:
   slow_job:
     cron: "*/1 * * * *"

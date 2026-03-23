@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -21,6 +22,9 @@ func TestParseRemoteGitTarget(t *testing.T) {
 		{name: "cast prefix", uses: "cast:spell@v1.0.0/tasks/hello", repoURL: "https://github.com/frostyeti/spells.git", version: "v1.0.0", subPath: "spell/tasks/hello"},
 		{name: "ssh url", uses: "git@github.com:org/repo.git@v1.2.3/path", repoURL: "git@github.com:org/repo.git", version: "v1.2.3", subPath: "path"},
 		{name: "https url", uses: "https://example.com/org/repo.git@main", repoURL: "https://example.com/org/repo.git", version: "main", subPath: ""},
+		{name: "github.com ref", uses: "github.com/org/repo@head", repoURL: "https://github.com/org/repo.git", version: "head", subPath: ""},
+		{name: "gitlab.com ref", uses: "gitlab.com/group/repo@abc1234", repoURL: "https://gitlab.com/group/repo.git", version: "abc1234", subPath: ""},
+		{name: "azure devops ref", uses: "dev.azure.com/org/project/_git/repo@feature", repoURL: "https://dev.azure.com/org/project/_git/repo.git", version: "feature", subPath: ""},
 	}
 
 	for _, tt := range tests {
@@ -47,6 +51,36 @@ func TestIsRemoteTask(t *testing.T) {
 		if !IsRemoteTask(uses) {
 			t.Fatalf("expected %q to be remote", uses)
 		}
+	}
+	for _, uses := range []string{"github.com/org/repo@head", "gitlab.com/group/repo@abc1234", "dev.azure.com/org/project/_git/repo@main", "ssh://git.example.com/repo.git@head"} {
+		if !IsRemoteTask(uses) {
+			t.Fatalf("expected %q to be remote", uses)
+		}
+	}
+}
+
+func TestRemoteVersionHelpers(t *testing.T) {
+	tests := []struct {
+		name string
+		ref  string
+		head bool
+		sha  bool
+	}{
+		{name: "head", ref: "head", head: true},
+		{name: "HEAD", ref: "HEAD", head: true},
+		{name: "sha", ref: "abc1234", sha: true},
+		{name: "tag", ref: "v1.2.3"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isHeadRef(tt.ref); got != tt.head {
+				t.Fatalf("isHeadRef(%q) = %v, want %v", tt.ref, got, tt.head)
+			}
+			if got := isGitCommitRef(tt.ref); got != tt.sha {
+				t.Fatalf("isGitCommitRef(%q) = %v, want %v", tt.ref, got, tt.sha)
+			}
+		})
 	}
 }
 
@@ -82,6 +116,37 @@ func TestResolveGitVersion_PrereleaseExact(t *testing.T) {
 	}
 }
 
+func TestResolveGitReference_HeadBranchAndSha(t *testing.T) {
+	tmpDir := t.TempDir()
+	repoDir := filepath.Join(tmpDir, "repo")
+	if err := os.MkdirAll(repoDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+
+	runGit(t, repoDir, "init")
+	runGit(t, repoDir, "config", "user.name", "Test User")
+	runGit(t, repoDir, "config", "user.email", "test@example.com")
+	if err := os.WriteFile(filepath.Join(repoDir, "cast.task"), []byte("name: test\n"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	runGit(t, repoDir, "add", ".")
+	runGit(t, repoDir, "commit", "-m", "initial")
+	runGit(t, repoDir, "checkout", "-b", "feature/login")
+	sha := strings.TrimSpace(runGitOutput(t, repoDir, "rev-parse", "HEAD"))
+
+	if got, mode := resolveGitReference(repoDir, "head", ""); got != "HEAD" || mode != gitResolveDefault {
+		t.Fatalf("resolveGitReference(head) = (%q, %v), want (HEAD, default)", got, mode)
+	}
+
+	if got, mode := resolveGitReference(repoDir, sha, ""); got != sha || mode != gitResolveCommit {
+		t.Fatalf("resolveGitReference(sha) = (%q, %v), want (%q, commit)", got, mode, sha)
+	}
+
+	if got, mode := resolveGitReference(repoDir, "feature/login", ""); got != "feature/login" || mode != gitResolveBranch {
+		t.Fatalf("resolveGitReference(branch) = (%q, %v), want (feature/login, branch)", got, mode)
+	}
+}
+
 func runGit(t *testing.T, dir string, args ...string) {
 	t.Helper()
 	cmd := exec.Command("git", args...)
@@ -90,4 +155,15 @@ func runGit(t *testing.T, dir string, args ...string) {
 	if err != nil {
 		t.Fatalf("git %v failed: %v\n%s", args, err, string(out))
 	}
+}
+
+func runGitOutput(t *testing.T, dir string, args ...string) string {
+	t.Helper()
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git %v failed: %v\n%s", args, err, string(out))
+	}
+	return string(out)
 }
