@@ -15,14 +15,16 @@ export default defineConfig({
 					href: 'https://github.com/frostyeti/cast',
 				},
 			],
-			sidebar: [
-				{
-					label: 'Guides',
-					items: [
-						{ label: 'Getting Started', slug: 'guides/getting-started' },
-						{ label: 'Examples', slug: 'guides/examples' },
-					],
-				},
+				sidebar: [
+					{
+						label: 'Guides',
+						items: [
+							{ label: 'Getting Started', slug: 'guides/getting-started' },
+							{ label: 'SSH and SCP Tasks', slug: 'guides/ssh-and-scp' },
+							{ label: 'Inventories', slug: 'guides/inventories' },
+							{ label: 'Examples', slug: 'guides/examples' },
+						],
+					},
 				{
 					label: 'Reference',
 					items: [

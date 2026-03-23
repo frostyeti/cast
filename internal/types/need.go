@@ -5,13 +5,16 @@ import (
 	"go.yaml.in/yaml/v4"
 )
 
+// Need declares a dependency on another task or job.
 type Need struct {
 	Id       string `yaml:"id,omitempty" json:"id,omitempty"`
 	Parallel bool   `yaml:"parallel,omitempty" json:"parallel,omitempty"`
 }
 
+// Needs is an ordered collection of dependencies.
 type Needs []Need
 
+// NewNeeds returns an empty dependency list.
 func NewNeeds() *Needs {
 	return &Needs{}
 }
@@ -36,6 +39,10 @@ func (n *Needs) Names() []string {
 func (n *Needs) UnmarshalYAML(node *yaml.Node) error {
 	if n == nil {
 		n = &Needs{}
+	}
+
+	if node.Kind == yaml.DocumentNode && len(node.Content) > 0 {
+		node = node.Content[0]
 	}
 
 	if node.Kind == yaml.ScalarNode {
@@ -64,6 +71,10 @@ func (n *Needs) UnmarshalYAML(node *yaml.Node) error {
 func (n *Need) UnmarshalYAML(node *yaml.Node) error {
 	if n == nil {
 		n = &Need{}
+	}
+
+	if node.Kind == yaml.DocumentNode && len(node.Content) > 0 {
+		node = node.Content[0]
 	}
 
 	if node.Kind == yaml.ScalarNode {

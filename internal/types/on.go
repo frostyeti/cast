@@ -5,6 +5,8 @@ import (
 	"go.yaml.in/yaml/v4"
 )
 
+// On declares project triggers such as schedules and webhooks.
+// Trigger blocks are optional and independent.
 type On struct {
 	Schedule *Schedule `yaml:"schedule,omitempty" json:"schedule,omitempty"`
 	Webhooks Webhooks  `yaml:"webhooks,omitempty" json:"webhooks,omitempty"`
@@ -13,6 +15,10 @@ type On struct {
 func (o *On) UnmarshalYAML(value *yaml.Node) error {
 	if o == nil {
 		o = &On{}
+	}
+
+	if value.Kind == yaml.DocumentNode && len(value.Content) > 0 {
+		value = value.Content[0]
 	}
 
 	for i := 0; i < len(value.Content); i += 2 {

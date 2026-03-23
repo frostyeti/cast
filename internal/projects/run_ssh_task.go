@@ -314,10 +314,10 @@ func runSSHTarget(ctx context.Context, taskContext TaskContext, target HostInfo)
 
 	if identity == "" && password != "" {
 		auth = goph.Password(password)
-	} else if goph.HasAgent() {
-		auth, err = goph.UseAgent()
 	} else if identity != "" {
 		auth, err = goph.Key(identity, password)
+	} else if goph.HasAgent() {
+		auth, err = goph.UseAgent()
 	} else {
 		return errors.New("No authentication method provided for SSH task")
 	}

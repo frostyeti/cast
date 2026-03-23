@@ -7,6 +7,8 @@ import (
 	"go.yaml.in/yaml/v4"
 )
 
+// HostDefaults defines reusable host connection defaults.
+// Tags are stored in YAML as groups for backward compatibility.
 type HostDefaults struct {
 	Port         *uint    `yaml:"port,omitempty" json:"port,omitempty"`
 	User         *string  `yaml:"user,omitempty" json:"user,omitempty"`

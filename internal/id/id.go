@@ -4,6 +4,7 @@ import "strings"
 
 var idCache = map[string]string{}
 
+// IsValidAlias reports whether an alias is a simple hyphenated identifier.
 func IsValidAlias(alias string) bool {
 	if alias == "" {
 		return false
@@ -23,6 +24,7 @@ func IsValidAlias(alias string) bool {
 	return true
 }
 
+// IsValidProjectId reports whether an id matches Cast's project-id rules.
 func IsValidProjectId(id string) bool {
 	if id == "" {
 		return false
@@ -70,6 +72,7 @@ func IsValidProjectId(id string) bool {
 	return true
 }
 
+// Slugify converts an identifier into a lowercase hyphenated slug.
 func Slugify(id string) string {
 	builder := []rune{}
 	for _, r := range id {
@@ -89,6 +92,7 @@ func Slugify(id string) string {
 	return string(builder)
 }
 
+// Sanitize replaces non-alphanumeric characters with hyphens.
 func Sanitize(input string) string {
 	var sb strings.Builder
 	for _, r := range input {
@@ -119,6 +123,7 @@ func Sanitize(input string) string {
 	return collapsed.String()
 }
 
+// Convert normalizes a human name into a reusable task or job id.
 func Convert(name string) string {
 	if id, exists := idCache[name]; exists {
 		return id
@@ -151,6 +156,7 @@ func Convert(name string) string {
 	return id
 }
 
+// IsValidId reports whether an id contains only lowercase letters, digits, and hyphens.
 func IsValidId(id string) bool {
 	if id == "" {
 		return false
@@ -166,6 +172,7 @@ func IsValidId(id string) bool {
 	return true
 }
 
+// IsValidName reports whether a display name uses supported characters.
 func IsValidName(name string) bool {
 	if name == "" {
 		return false

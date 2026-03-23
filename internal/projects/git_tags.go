@@ -1,82 +1,144 @@
 package projects
 
 import (
+	stdexec "os/exec"
+	"strconv"
 	"strings"
-
-	"github.com/Masterminds/semver"
-	"github.com/frostyeti/go/exec"
 )
 
+var gitLsRemote = func(repoURL string) (string, int, error) {
+	cmd := stdexec.Command("git", "ls-remote", "--tags", repoURL)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return string(out), 1, err
+	}
+	return string(out), 0, nil
+}
+
 // resolveGitVersion checks if a requested version like "v1" can be resolved
-// to a specific semver tag like "v1.2.3" by querying the remote repository.
-func resolveGitVersion(repoURL, version string) string {
-	// If it looks like a branch name or 'main' / 'master', skip semver resolution
+// to a specific git tag by querying the remote repository.
+func resolveGitVersion(repoURL, version, subPath string) string {
 	if version == "" || version == "main" || version == "master" {
 		return version
 	}
 
-	cmd := exec.New("git", "ls-remote", "--tags", repoURL)
-	out, err := cmd.Run()
-	if err != nil || out.Code != 0 {
-		return version // Fallback to whatever was requested
-	}
-
-	lines := strings.Split(string(out.Stdout), "\n")
-	var tags []string
-	for _, line := range lines {
-		parts := strings.Fields(line)
-		if len(parts) >= 2 {
-			tagRef := parts[1]
-			// e.g. refs/tags/v1.0.0
-			if strings.HasPrefix(tagRef, "refs/tags/") {
-				tag := strings.TrimPrefix(tagRef, "refs/tags/")
-				// Skip peeled tags ending in ^{}
-				if !strings.HasSuffix(tag, "^{}") {
-					tags = append(tags, tag)
-				}
-			}
-		}
-	}
-
-	// Try to match the provided version as a constraint (e.g., "~1.x.x" if version is "v1")
-	constraintStr := version
-	if !strings.Contains(constraintStr, ".") {
-		constraintStr = "^" + constraintStr // v1 becomes ^v1
-	} else if strings.Count(constraintStr, ".") == 1 {
-		constraintStr = "~" + constraintStr // v1.2 becomes ~v1.2
-	}
-
-	constraint, err := semver.NewConstraint(constraintStr)
-	if err != nil {
-		// Try fallback if the string is just "v1" directly matching a tag "v1"
-		for _, t := range tags {
-			if t == version {
-				return version
-			}
-		}
+	stdout, code, err := gitLsRemote(repoURL)
+	if err != nil || code != 0 {
 		return version
 	}
 
-	var bestMatch *semver.Version
-	bestTag := ""
+	lines := strings.Split(stdout, "\n")
+	tags := make([]string, 0, len(lines))
+	for _, line := range lines {
+		parts := strings.Fields(line)
+		if len(parts) < 2 {
+			continue
+		}
+		tagRef := parts[1]
+		if !strings.HasPrefix(tagRef, "refs/tags/") {
+			continue
+		}
+		tag := strings.TrimPrefix(tagRef, "refs/tags/")
+		if strings.HasSuffix(tag, "^{}") {
+			continue
+		}
+		tags = append(tags, tag)
+	}
 
-	for _, t := range tags {
-		v, err := semver.NewVersion(t)
-		if err != nil {
-			continue // skip invalid semver tags
+	chooseBest := func(candidates []string) string {
+		if strings.Contains(version, "-") {
+			for _, t := range candidates {
+				if t == version || strings.HasSuffix(t, "/"+version) {
+					return t
+				}
+			}
+			return ""
 		}
 
-		if constraint.Check(v) {
-			if bestMatch == nil || v.GreaterThan(bestMatch) {
-				bestMatch = v
+		requested := trimVersion(version)
+		var bestTag string
+		var bestMajor, bestMinor, bestPatch int
+		found := false
+
+		for _, t := range candidates {
+			base := t
+			if idx := strings.LastIndex(base, "/"); idx > -1 {
+				if subPath == "" {
+					continue
+				}
+				base = base[idx+1:]
+			}
+
+			baseVersion := trimVersion(base)
+			if baseVersion != requested && !strings.HasPrefix(baseVersion, requested+".") {
+				continue
+			}
+
+			major, minor, patch, ok := parseVersionParts(base)
+			if !ok {
+				continue
+			}
+
+			if !found || major > bestMajor || (major == bestMajor && minor > bestMinor) || (major == bestMajor && minor == bestMinor && patch > bestPatch) {
+				found = true
+				bestMajor, bestMinor, bestPatch = major, minor, patch
 				bestTag = t
 			}
 		}
-	}
 
-	if bestTag != "" {
 		return bestTag
 	}
 
-	return version // Fallback
+	if subPath != "" {
+		prefix := strings.TrimSuffix(subPath, "/") + "/"
+		prefixed := make([]string, 0)
+		for _, t := range tags {
+			if strings.HasPrefix(t, prefix) {
+				prefixed = append(prefixed, t)
+			}
+		}
+		if best := chooseBest(prefixed); best != "" {
+			return best
+		}
+	}
+
+	if best := chooseBest(tags); best != "" {
+		return best
+	}
+
+	return version
+}
+
+func trimVersion(v string) string {
+	v = strings.TrimPrefix(strings.TrimPrefix(v, "v"), "V")
+	if i := strings.IndexByte(v, '-'); i > -1 {
+		v = v[:i]
+	}
+	return v
+}
+
+func parseVersionParts(v string) (int, int, int, bool) {
+	v = trimVersion(v)
+	parts := strings.Split(v, ".")
+	if len(parts) < 2 {
+		return 0, 0, 0, false
+	}
+
+	major, err := strconv.Atoi(parts[0])
+	if err != nil {
+		return 0, 0, 0, false
+	}
+	minor, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return 0, 0, 0, false
+	}
+	patch := 0
+	if len(parts) > 2 {
+		patch, err = strconv.Atoi(parts[2])
+		if err != nil {
+			return 0, 0, 0, false
+		}
+	}
+
+	return major, minor, patch, true
 }

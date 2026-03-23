@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 )
 
 func TestE2E_WebJobExecutionWithLogs(t *testing.T) {
@@ -59,8 +58,7 @@ jobs:
 		}
 	}()
 
-	// Wait for server to start
-	time.Sleep(2 * time.Second)
+	waitForHTTPStatus(t, "http://127.0.0.1:8083/health", http.StatusOK, 10_000_000_000)
 
 	// Trigger job
 	resp, err := http.Post("http://127.0.0.1:8083/api/v1/projects/web-job-log-test/jobs/myjob/trigger", "application/json", nil)
@@ -72,16 +70,8 @@ jobs:
 	}
 	resp.Body.Close()
 
-	// Wait for job to finish
-	time.Sleep(3 * time.Second)
-
-	// Verify files were created in order
-	if _, err := os.Stat(filepath.Join(tmpDir, "step1.txt")); os.IsNotExist(err) {
-		t.Errorf("step1.txt was not created")
-	}
-	if _, err := os.Stat(filepath.Join(tmpDir, "step2.txt")); os.IsNotExist(err) {
-		t.Errorf("step2.txt was not created")
-	}
+	waitForFile(t, filepath.Join(tmpDir, "step1.txt"), 10_000_000_000)
+	waitForFile(t, filepath.Join(tmpDir, "step2.txt"), 10_000_000_000)
 
 	// Get job runs
 	resp, err = http.Get("http://127.0.0.1:8083/api/v1/projects/web-job-log-test/jobs/myjob/runs")

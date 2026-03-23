@@ -7,6 +7,7 @@ import (
 	"go.yaml.in/yaml/v4"
 )
 
+// Task is a runnable Cast task definition.
 type Task struct {
 	Id       string   `yaml:"id,omitempty" json:"id,omitempty"`
 	Name     string   `yaml:"name,omitempty" json:"name,omitempty"`
@@ -33,6 +34,10 @@ type Task struct {
 func (t *Task) UnmarshalYAML(value *yaml.Node) error {
 	if t == nil {
 		t = &Task{}
+	}
+
+	if value.Kind == yaml.DocumentNode && len(value.Content) > 0 {
+		value = value.Content[0]
 	}
 
 	if value.Kind == yaml.ScalarNode {

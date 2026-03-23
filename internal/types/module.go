@@ -8,6 +8,8 @@ import (
 	"go.yaml.in/yaml/v4"
 )
 
+// Module is an experimental reusable Cast module definition.
+// Modules may be imported into a project or another module.
 type Module struct {
 	Id        string     `yaml:"id,omitempty" json:"id,omitempty"`
 	Name      string     `yaml:"name,omitempty" json:"name,omitempty"`
@@ -29,6 +31,10 @@ type Module struct {
 func (m *Module) UnmarshalYAML(node *yaml.Node) error {
 	if m == nil {
 		m = &Module{}
+	}
+
+	if node.Kind == yaml.DocumentNode && len(node.Content) > 0 {
+		node = node.Content[0]
 	}
 
 	if node.Kind != yaml.MappingNode {
@@ -116,6 +122,7 @@ func (m *Module) UnmarshalYAML(node *yaml.Node) error {
 	return nil
 }
 
+// ReadFromYaml loads a module from a YAML file.
 func (m *Module) ReadFromYaml(file string) error {
 	if !filepath.IsAbs(file) {
 		absFile, err := filepath.Abs(file)

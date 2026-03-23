@@ -7,7 +7,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"testing"
-	"time"
 )
 
 func TestE2E_WebModeAndCron(t *testing.T) {
@@ -56,8 +55,7 @@ jobs:
 		}
 	}()
 
-	// Wait for server to start
-	time.Sleep(2 * time.Second)
+	waitForHTTPStatus(t, "http://127.0.0.1:8082/health", http.StatusOK, 10_000_000_000)
 
 	// Test 1: Health check
 	resp, err := http.Get("http://127.0.0.1:8082/health")

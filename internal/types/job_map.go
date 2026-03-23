@@ -9,6 +9,7 @@ import (
 	"go.yaml.in/yaml/v4"
 )
 
+// JobMap stores jobs in insertion order.
 type JobMap struct {
 	values map[string]Job
 
@@ -96,6 +97,7 @@ func (t *JobMap) UnmarshalYAML(node *yaml.Node) error {
 	return nil
 }
 
+// NewJobMap returns an initialized job map.
 func NewJobMap() *JobMap {
 	return &JobMap{
 		values: make(map[string]Job),

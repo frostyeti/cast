@@ -13,6 +13,7 @@ import (
 	"go.yaml.in/yaml/v4"
 )
 
+// Env preserves ordered environment variables.
 type Env struct {
 	Map  map[string]string
 	keys []string
@@ -33,6 +34,7 @@ func (e *Env) MarshalJSON() ([]byte, error) {
 	return json.Marshal(e.Map)
 }
 
+// EnvVarsVariable describes a single env entry in scalar or mapping form.
 type EnvVarsVariable struct {
 	Name     string
 	Value    string
@@ -43,6 +45,10 @@ type EnvVarsVariable struct {
 func (ev *EnvVarsVariable) UnmarshalYAML(node *yaml.Node) error {
 	if ev == nil {
 		ev = &EnvVarsVariable{}
+	}
+
+	if node.Kind == yaml.DocumentNode && len(node.Content) > 0 {
+		node = node.Content[0]
 	}
 
 	if node.Kind == yaml.ScalarNode {
@@ -104,6 +110,10 @@ func (ev *EnvVarsVariable) UnmarshalYAML(node *yaml.Node) error {
 func (e *Env) UnmarshalYAML(node *yaml.Node) error {
 	if e == nil {
 		e = &Env{}
+	}
+
+	if node.Kind == yaml.DocumentNode && len(node.Content) > 0 {
+		node = node.Content[0]
 	}
 
 	e.Map = make(map[string]string)
@@ -198,6 +208,7 @@ func (e *Env) UnmarshalYAML(node *yaml.Node) error {
 	return errors.YamlErrorf(node, "expected yaml sequence for EnvVars")
 }
 
+// NewEnv returns an initialized environment map.
 func NewEnv() *Env {
 	return &Env{
 		Map:  map[string]string{},

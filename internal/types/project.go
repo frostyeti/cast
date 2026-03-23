@@ -3,11 +3,14 @@ package types
 import (
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/frostyeti/cast/internal/errors"
 	"go.yaml.in/yaml/v4"
 )
 
+// Project is the parsed root Castfile configuration.
+// It accepts both `description` and `desc`.
 type Project struct {
 	Id             string           `yaml:"id,omitempty" json:"id,omitempty"`
 	Name           string           `yaml:"name,omitempty" json:"name,omitempty"`
@@ -31,6 +34,7 @@ type Project struct {
 	File           string           `yaml:"-" json:"-"`
 }
 
+// NewProject returns an empty project.
 func NewProject() *Project {
 	return &Project{}
 }
@@ -38,6 +42,10 @@ func NewProject() *Project {
 func (p *Project) UnmarshalYAML(node *yaml.Node) error {
 	if p == nil {
 		p = NewProject()
+	}
+
+	if node.Kind == yaml.DocumentNode && len(node.Content) > 0 {
+		node = node.Content[0]
 	}
 
 	if node.Kind != yaml.MappingNode {
@@ -121,15 +129,20 @@ func (p *Project) UnmarshalYAML(node *yaml.Node) error {
 				return errors.NewYamlError(valueNode, "failed to decode project meta: "+err.Error())
 			}
 		case "workspace":
-			p.Workspace = &Workspace{}
 			if valueNode.Kind == yaml.ScalarNode {
-				if valueNode.Value == "true" || valueNode.Value == "1" {
-					p.Workspace = &Workspace{
-						Include: []string{},
-					}
+				switch strings.ToLower(valueNode.Value) {
+				case "true", "yes", "1":
+					p.Workspace = &Workspace{Include: []string{}, Exclude: []string{}}
+					continue
+				case "false", "no", "0":
+					p.Workspace = nil
+					continue
+				default:
+					return errors.NewYamlError(valueNode, "workspace must be a boolean or mapping")
 				}
 			}
 
+			p.Workspace = &Workspace{}
 			err := valueNode.Decode(p.Workspace)
 			if err != nil {
 				return errors.NewYamlError(valueNode, "failed to decode project workspace: "+err.Error())
@@ -174,6 +187,7 @@ func (p *Project) UnmarshalYAML(node *yaml.Node) error {
 	return nil
 }
 
+// ReadFromYaml loads a project from a YAML file.
 func (p *Project) ReadFromYaml(file string) error {
 	if !filepath.IsAbs(file) {
 		absFile, err := filepath.Abs(file)

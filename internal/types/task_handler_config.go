@@ -1,5 +1,6 @@
 package types
 
+// TaskHandlerConfig is the runtime configuration for task handlers.
 type TaskHandlerConfig struct {
 	Id   string  `json:"id"`
 	Name string  `json:"name"`

@@ -5,6 +5,8 @@ import (
 	"go.yaml.in/yaml/v4"
 )
 
+// Step is a single job step or a task reference.
+// A scalar step name is treated as a task reference.
 type Step struct {
 	Id       *string `json:"id,omitempty"`
 	Name     *string `json:"name,omitempty"`
@@ -18,6 +20,7 @@ type Step struct {
 	TaskName *string `json:"task,omitempty"`
 }
 
+// Steps is an ordered collection of job steps.
 type Steps []Step
 
 func (s *Step) UnmarshalYAML(node *yaml.Node) error {

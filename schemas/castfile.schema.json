@@ -1,0 +1,465 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema",
+  "$id": "castfile.schema.json",
+  "title": "Castfile Schema",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique project id. Cast sanitizes and converts the value for server mode, so prefer lowercase hyphenated ids.",
+      "pattern": "^[a-z0-9-]+$"
+    },
+    "name": {
+      "type": "string",
+      "description": "Display name for the project. Used to derive ids when one is not provided.",
+      "minLength": 1
+    },
+    "version": {
+      "type": "string",
+      "description": "Project version string."
+    },
+    "description": {
+      "type": "string",
+      "description": "Project description. `desc` is accepted as an alias."
+    },
+    "desc": {
+      "type": "string",
+      "description": "Alias for `description`."
+    },
+    "trusted_sources": {
+      "type": "array",
+      "description": "Allowlist of remote task/module sources. Each entry is matched against remote `uses` values before download.",
+      "items": { "type": "string" }
+    },
+    "imports": { "$ref": "#/definitions/imports" },
+    "modules": { "$ref": "#/definitions/imports", "description": "Alias for `imports`; experimental." },
+    "config": { "$ref": "#/definitions/project-config" },
+    "defaults": { "$ref": "#/definitions/project-defaults" },
+    "workspace": { "$ref": "#/definitions/workspace" },
+    "env": { "$ref": "#/definitions/env" },
+    "paths": { "$ref": "#/definitions/paths" },
+    "dotenv": { "$ref": "#/definitions/dotenvs" },
+    "inventory": { "$ref": "#/definitions/inventory" },
+    "inventories": {
+      "type": "array",
+      "description": "Additional standalone inventory files to merge.",
+      "items": { "type": "string" }
+    },
+    "tasks": { "$ref": "#/definitions/tasks" },
+    "jobs": { "$ref": "#/definitions/jobs" },
+    "meta": { "$ref": "#/definitions/meta" },
+    "on": { "$ref": "#/definitions/on" }
+  },
+  "definitions": {
+    "project-config": {
+      "type": "object",
+      "description": "Parser/runtime configuration for the project.",
+      "properties": {
+        "context": {
+          "type": "string",
+          "description": "Default task context name used for context-specific lookups."
+        },
+        "substitution": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable or disable environment substitution while evaluating task values."
+        }
+      },
+      "additionalProperties": false
+    },
+    "project-defaults": {
+      "type": "object",
+      "description": "Project-wide defaults.",
+      "properties": {
+        "shell": { "type": "string", "description": "Default shell to use for shell-like tasks." }
+      },
+      "additionalProperties": false
+    },
+    "workspace": {
+      "description": "Workspace discovery config. Accepts a boolean toggle or a mapping.",
+      "anyOf": [
+        {
+          "type": "boolean",
+          "description": "`true` enables workspace discovery, `false` disables it."
+        },
+        {
+          "type": "object",
+          "properties": {
+            "include": {
+              "type": "array",
+              "description": "Glob patterns to include while scanning for nested projects.",
+              "items": { "type": "string" }
+            },
+            "exclude": {
+              "type": "array",
+              "description": "Glob patterns to exclude while scanning for nested projects.",
+              "items": { "type": "string" }
+            },
+            "aliases": {
+              "type": "object",
+              "description": "Named workspace aliases mapped to paths. Aliases must be valid project aliases.",
+              "additionalProperties": { "type": "string" }
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "imports": {
+      "description": "Import reusable modules or task packs.",
+      "anyOf": [
+        { "type": "string", "description": "Single import source." },
+        { "type": "array", "items": { "$ref": "#/definitions/import" } }
+      ]
+    },
+    "import": {
+      "description": "Import shorthand or object form.",
+      "anyOf": [
+        { "type": "string", "description": "Source path or URI." },
+        {
+          "type": "object",
+          "properties": {
+            "from": { "type": "string", "description": "Source path or URI." },
+            "namespace": { "type": "string", "description": "Namespace prefix to apply to imported task names." },
+            "ns": { "type": "string", "description": "Alias for `namespace`." },
+            "tasks": {
+              "type": "array",
+              "description": "Subset of tasks to import from the module.",
+              "items": { "type": "string" }
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "env": {
+      "description": "Environment variables in mapping or ordered list form.",
+      "anyOf": [
+        { "type": "object", "additionalProperties": { "type": "string" } },
+        {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "`NAME=VALUE` or `NAME:VALUE` for secret entries."
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "value": { "type": "string" },
+                  "secret": { "type": "boolean", "default": false }
+                },
+                "required": ["name", "value"],
+                "additionalProperties": false
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "dotenvs": {
+      "description": "Ordered dotenv file list. Prefix or suffix a path with `?` to make it optional.",
+      "anyOf": [
+        { "type": "string", "description": "Single dotenv file path." },
+        { "type": "array", "items": { "$ref": "#/definitions/dotenv" } }
+      ]
+    },
+    "dotenv": {
+      "description": "Dotenv shorthand or mapping form.",
+      "anyOf": [
+        { "type": "string", "description": "Path to a dotenv file. `?path` or `path?` makes it optional." },
+        {
+          "type": "object",
+          "properties": {
+            "path": { "type": "string" },
+            "os": { "type": "string", "description": "Optional target OS filter." },
+            "contexts": {
+              "anyOf": [
+                { "type": "string" },
+                { "type": "array", "items": { "type": "string" } }
+              ]
+            }
+          },
+          "required": ["path"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "paths": {
+      "description": "Ordered PATH entries.",
+      "anyOf": [
+        { "type": "string", "description": "Single path entry." },
+        { "type": "array", "items": { "$ref": "#/definitions/path" } }
+      ]
+    },
+    "path": {
+      "description": "PATH shorthand or mapping form.",
+      "anyOf": [
+        { "type": "string", "description": "Path entry string." },
+        {
+          "type": "object",
+          "properties": {
+            "path": { "type": "string" },
+            "value": { "type": "string" },
+            "windows": { "type": "string" },
+            "win": { "type": "string" },
+            "win32": { "type": "string" },
+            "linux": { "type": "string" },
+            "unix": { "type": "string" },
+            "mac": { "type": "string" },
+            "macos": { "type": "string" },
+            "darwin": { "type": "string" },
+            "osx": { "type": "string" },
+            "os": { "type": "string", "enum": ["windows", "linux", "darwin"] },
+            "append": { "type": "boolean", "default": false }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "inventory": {
+      "type": "object",
+      "description": "Inventory host definitions and named defaults.",
+      "properties": {
+        "defaults": {
+          "type": "object",
+          "description": "Named default host definitions.",
+          "patternProperties": {
+            "^[a-zA-Z0-9_\\-:.]+$": { "$ref": "#/definitions/host-defaults" }
+          }
+        },
+        "hosts": {
+          "description": "Hosts may be a mapping or a sequence of scalar/mapping host entries.",
+          "anyOf": [
+            { "type": "array", "items": { "$ref": "#/definitions/host" } },
+            { "type": "object", "additionalProperties": { "$ref": "#/definitions/host" } }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "host-defaults": {
+      "type": "object",
+      "description": "Reusable host defaults.",
+      "properties": {
+        "user": { "type": "string" },
+        "identity": { "type": "string", "description": "SSH identity file path." },
+        "password": { "type": "string", "description": "Password or env var name depending on runner." },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "groups": { "type": "array", "items": { "type": "string" }, "description": "Host tags/groups." },
+        "meta": { "type": "object", "additionalProperties": true },
+        "os": { "$ref": "#/definitions/os-info" }
+      },
+      "additionalProperties": false
+    },
+    "host": {
+      "description": "Host shorthand or mapping form.",
+      "anyOf": [
+        {
+          "type": "string",
+          "description": "`user@host:port`, `host:port`, or `host` shorthand."
+        },
+        {
+          "type": "object",
+          "properties": {
+            "host": { "type": "string" },
+            "user": { "type": "string" },
+            "identity": { "type": "string" },
+            "password": { "type": "string" },
+            "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+            "defaults": { "type": "string" },
+            "groups": { "type": "array", "items": { "type": "string" } },
+            "meta": { "type": "object", "additionalProperties": true },
+            "os": { "$ref": "#/definitions/os-info" }
+          },
+          "required": ["host"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "os-info": {
+      "type": "object",
+      "description": "Operating system information.",
+      "properties": {
+        "platform": { "type": "string", "enum": ["windows", "linux", "darwin"] },
+        "arch": { "type": "string" },
+        "variant": { "type": "string" },
+        "family": { "type": "string" },
+        "codename": { "type": "string" },
+        "version": { "type": "string" },
+        "buildVersion": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "tasks": {
+      "type": "object",
+      "description": "Map of task names to task definitions.",
+      "patternProperties": {
+        "^[a-zA-Z0-9_\\-:.@/]+$": { "$ref": "#/definitions/task" }
+      }
+    },
+    "task": {
+      "type": "object",
+      "description": "Task definition.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Stable task id. Prefer lowercase hyphenated ids.",
+          "pattern": "^[a-z0-9-]+$"
+        },
+        "name": { "type": "string", "description": "Display name; task key is used when omitted." },
+        "slug": { "type": "string" },
+        "desc": { "type": "string" },
+        "help": { "type": "string" },
+        "env": { "$ref": "#/definitions/env" },
+        "dotenv": { "$ref": "#/definitions/dotenvs" },
+        "cwd": { "type": "string" },
+        "timeout": {
+          "type": "string",
+          "pattern": "^[0-9]+(s|m|h)?$",
+          "description": "Duration string such as `30s`, `5m`, or `1h`."
+        },
+        "run": { "type": "string" },
+        "uses": {
+          "description": "Built-in task runner or remote task/module URI.",
+          "anyOf": [
+            { "type": "string", "enum": ["docker", "bash", "pwsh", "python", "powershell", "sh", "node", "bun", "deno", "ruby", "ssh", "scp", "tmpl", "shell", "go", "dotnet", "csharp", "golang", "cast"] },
+            { "type": "string", "pattern": "^(github\\.com/|https?://|jsr:|npm:|@|\\./|\\.\\./|/).+" }
+          ]
+        },
+        "args": { "type": "array", "items": { "type": "string" } },
+        "needs": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/need" },
+          "description": "Task dependencies. A scalar is also accepted in YAML and becomes a need id."
+        },
+        "with": { "type": "object", "additionalProperties": true },
+        "hosts": { "type": "array", "items": { "type": "string", "pattern": "^[a-zA-Z0-9_\\-:.]+$" } },
+        "if": { "anyOf": [{ "type": "boolean" }, { "type": "string" }] },
+        "hooks": { "$ref": "#/definitions/hooks" },
+        "force": { "anyOf": [{ "type": "boolean" }, { "type": "string" }] },
+        "extends": { "type": "string" },
+        "template": {
+          "anyOf": [
+            { "type": "boolean" },
+            { "type": "string", "enum": ["gotmpl"] }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "need": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-zA-Z0-9_\\-:.@/]+$" },
+        "parallel": { "type": "boolean" }
+      },
+      "required": ["id"],
+      "additionalProperties": false
+    },
+    "jobs": {
+      "type": "object",
+      "description": "Experimental job map.",
+      "patternProperties": {
+        "^[a-zA-Z0-9_\\-:.@/]+$": { "$ref": "#/definitions/job" }
+      }
+    },
+    "job": {
+      "type": "object",
+      "description": "Experimental job definition.",
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+        "name": { "type": "string" },
+        "desc": { "type": "string" },
+        "needs": { "$ref": "#/definitions/needs" },
+        "steps": { "type": "array", "items": { "$ref": "#/definitions/step" } },
+        "env": { "$ref": "#/definitions/env" },
+        "dotenv": { "$ref": "#/definitions/dotenvs" },
+        "if": { "type": "string" },
+        "timeout": { "type": "string", "pattern": "^[0-9]+(s|m|h)?$" },
+        "cwd": { "type": "string" },
+        "extends": { "type": "string" },
+        "cron": { "type": "string", "description": "Legacy single-cron field; prefer `on.schedule.crons` for project-level cron triggers." }
+      },
+      "additionalProperties": false
+    },
+    "needs": { "type": "array", "items": { "$ref": "#/definitions/need" } },
+    "step": {
+      "description": "Job step. A scalar becomes a task reference; mappings can provide `run`, `uses`, `with`, or `task`.",
+      "anyOf": [
+        { "type": "string" },
+        {
+          "type": "object",
+          "properties": {
+            "task": { "type": "string" },
+            "run": { "type": "string" },
+            "uses": { "type": "string" },
+            "with": { "type": "object", "additionalProperties": true },
+            "env": { "$ref": "#/definitions/env" },
+            "cwd": { "type": "string" },
+            "desc": { "type": "string" },
+            "force": { "anyOf": [{ "type": "boolean" }, { "type": "string" }] }
+          },
+          "additionalProperties": true
+        }
+      ]
+    },
+    "hooks": {
+      "description": "Before/after hook task names.",
+      "anyOf": [
+        { "type": "boolean" },
+        {
+          "type": "object",
+          "properties": {
+            "before": { "oneOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" } }] },
+            "after": { "oneOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" } }] }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "meta": { "type": "object", "additionalProperties": true },
+    "on": {
+      "type": "object",
+      "description": "Project triggers such as schedules and webhooks.",
+      "properties": {
+        "schedule": { "$ref": "#/definitions/schedule" },
+        "webhooks": { "$ref": "#/definitions/webhooks" }
+      },
+      "additionalProperties": false
+    },
+    "schedule": {
+      "type": "object",
+      "properties": {
+        "crons": {
+          "anyOf": [
+            { "type": "string" },
+            { "type": "array", "items": { "type": "string" } }
+          ],
+          "description": "One or more POSIX cron expressions."
+        },
+        "timezone": { "type": "string", "description": "Optional IANA timezone name." }
+      },
+      "additionalProperties": false
+    },
+    "webhooks": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/definitions/webhook" }
+    },
+    "webhook": {
+      "type": "object",
+      "description": "Experimental webhook trigger.",
+      "properties": {
+        "id": { "type": "string" },
+        "job": { "type": "string" },
+        "task": { "type": "string" },
+        "secret": { "type": "string" },
+        "token": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

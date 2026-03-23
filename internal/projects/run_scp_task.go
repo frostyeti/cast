@@ -2,23 +2,157 @@ package projects
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
 	"io"
 	"net"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
 
 	"github.com/frostyeti/cast/internal/errors"
+	"github.com/frostyeti/cast/internal/paths"
+	"github.com/frostyeti/go/env"
 	goph "github.com/melbahja/goph"
+	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
 )
 
 type scpJobResult struct {
 	Host  string
 	Error error
+}
+
+func expandScpValue(taskEnv map[string]string, value string) (string, error) {
+	if !strings.ContainsRune(value, '$') {
+		return value, nil
+	}
+
+	return env.ExpandWithOptions(value, &env.ExpandOptions{
+		Get: func(key string) string {
+			if taskEnv == nil {
+				return ""
+			}
+			return taskEnv[key]
+		},
+		Set: func(string, string) error {
+			return nil
+		},
+		CommandSubstitution: false,
+	})
+}
+
+func normalizeOptionalScpPath(path string) (string, bool) {
+	optional := false
+	trimmed := strings.TrimSpace(path)
+
+	for strings.HasPrefix(trimmed, "?") {
+		optional = true
+		trimmed = strings.TrimSpace(trimmed[1:])
+	}
+
+	for strings.HasSuffix(trimmed, "?") {
+		optional = true
+		trimmed = strings.TrimSpace(trimmed[:len(trimmed)-1])
+	}
+
+	return trimmed, optional
+}
+
+func splitScpFileSpec(file string) (string, string, bool, error) {
+	parts := strings.SplitN(file, ":", 2)
+	if len(parts) != 2 {
+		return "", "", false, errors.New("Invalid SCP file format, expected 'source:destination'")
+	}
+
+	source, optional := normalizeOptionalScpPath(parts[0])
+	destination := strings.TrimSpace(parts[1])
+	if source == "" || destination == "" {
+		return "", "", false, errors.New("Invalid SCP file format, expected 'source:destination'")
+	}
+
+	return source, destination, optional, nil
+}
+
+func taskScpWorkingDir(ctx TaskContext) string {
+	if ctx.Task != nil && ctx.Task.Cwd != "" {
+		return ctx.Task.Cwd
+	}
+
+	if ctx.Project != nil && ctx.Project.Dir != "" {
+		return ctx.Project.Dir
+	}
+
+	return "."
+}
+
+func resolveScpLocalPath(ctx TaskContext, value string) (string, error) {
+	expanded, err := expandScpValue(ctx.Task.Env, value)
+	if err != nil {
+		return "", err
+	}
+
+	if expanded == "" {
+		return "", errors.New("empty local path for SCP transfer")
+	}
+
+	if filepath.IsAbs(expanded) {
+		return expanded, nil
+	}
+
+	return paths.ResolvePath(taskScpWorkingDir(ctx), expanded)
+}
+
+func resolveScpRemotePath(ctx TaskContext, value string) (string, error) {
+	expanded, err := expandScpValue(ctx.Task.Env, value)
+	if err != nil {
+		return "", err
+	}
+
+	if expanded == "" {
+		return "", errors.New("empty remote path for SCP transfer")
+	}
+
+	return expanded, nil
+}
+
+func remoteScpFileExists(client *goph.Client, remotePath string) (bool, error) {
+	ftp, err := client.NewSftp()
+	if err != nil {
+		return false, err
+	}
+	defer ftp.Close()
+
+	if _, err := ftp.Stat(remotePath); err != nil {
+		var statusErr *sftp.StatusError
+		if stderrors.As(err, &statusErr) && statusErr.FxCode() == sftp.ErrSSHFxNoSuchFile {
+			return false, nil
+		}
+
+		if stderrors.Is(err, os.ErrNotExist) {
+			return false, nil
+		}
+
+		return false, err
+	}
+
+	return true, nil
+}
+
+func isMissingScpFile(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	var statusErr *sftp.StatusError
+	if stderrors.As(err, &statusErr) && statusErr.FxCode() == sftp.ErrSSHFxNoSuchFile {
+		return true
+	}
+
+	return stderrors.Is(err, os.ErrNotExist)
 }
 
 func runScpTask(ctx TaskContext) *TaskResult {
@@ -50,27 +184,39 @@ func runScpTask(ctx TaskContext) *TaskResult {
 		return res.Fail(errors.New("No files specified for SCP task"))
 	}
 
-	uri, err := url.Parse(ctx.Task.Uses)
-	if err != nil {
-		return res.Fail(errors.New("Invalid SSH URI: " + err.Error()))
-	}
-
-	if uri.Scheme != "scp" {
-		return res.Fail(errors.New("Invalid SSH URI scheme: " + uri.Scheme))
-	}
-
-	direction := uri.Query().Get("direction")
-	if direction == "" {
-		direction = uri.Path
-	}
-
-	download := uri.Query().Get("download") == "true"
-	if direction == "" {
-		if download {
-			direction = "download"
-		} else {
-			direction = "upload"
+	direction := ""
+	if v, ok := ctx.Task.With["direction"]; ok {
+		if s, ok := v.(string); ok {
+			direction = strings.TrimSpace(strings.ToLower(s))
 		}
+	}
+
+	if direction == "" {
+		uri, err := url.Parse(ctx.Task.Uses)
+		if err != nil {
+			return res.Fail(errors.New("Invalid SSH URI: " + err.Error()))
+		}
+
+		if uri.Scheme != "scp" && uri.Scheme != "" {
+			return res.Fail(errors.New("Invalid SSH URI scheme: " + uri.Scheme))
+		}
+
+		direction = strings.TrimSpace(strings.ToLower(uri.Query().Get("direction")))
+		if direction == "" {
+			download := strings.EqualFold(uri.Query().Get("download"), "true")
+			if download {
+				direction = "download"
+			} else {
+				path := strings.TrimSpace(strings.ToLower(uri.Path))
+				if path != "" && path != "scp" {
+					direction = path
+				}
+			}
+		}
+	}
+
+	if direction == "" {
+		direction = "upload"
 	}
 
 	targets := ctx.Task.Hosts
@@ -251,10 +397,10 @@ func runScpTarget(ctx context.Context, direction string, taskContext TaskContext
 
 	if identity == "" && password != "" {
 		auth = goph.Password(password)
-	} else if goph.HasAgent() {
-		auth, err = goph.UseAgent()
 	} else if identity != "" {
 		auth, err = goph.Key(identity, password)
+	} else if goph.HasAgent() {
+		auth, err = goph.UseAgent()
 	} else {
 		return errors.New("No authentication method provided for SSH task")
 	}
@@ -291,24 +437,76 @@ func runScpTarget(ctx context.Context, direction string, taskContext TaskContext
 	defer client.Close()
 
 	for _, file := range files {
-		parts := strings.Split(file, ":")
-		if len(parts) != 2 {
-			err2 := errors.New("Invalid SCP file format, expected 'source:destination'")
-			err2 = errors.WithCause(err2, err)
-			return err2
+		source, destination, optional, err := splitScpFileSpec(file)
+		if err != nil {
+			return err
 		}
-		source := parts[0]
-		destination := parts[1]
 
 		if direction != "download" {
+			sourcePath, err := resolveScpLocalPath(taskContext, source)
+			if err != nil {
+				err2 := errors.New("Failed to resolve SCP source path: " + err.Error())
+				err2 = errors.WithCause(err2, err)
+				return err2
+			}
+
+			if optional {
+				if _, err := os.Stat(sourcePath); err != nil {
+					if os.IsNotExist(err) {
+						continue
+					}
+
+					err2 := errors.New("Failed to stat optional SCP source path: " + err.Error())
+					err2 = errors.WithCause(err2, err)
+					return err2
+				}
+			}
+
+			destinationPath, err := resolveScpRemotePath(taskContext, destination)
+			if err != nil {
+				err2 := errors.New("Failed to resolve SCP destination path: " + err.Error())
+				err2 = errors.WithCause(err2, err)
+				return err2
+			}
+
 			fmt.Fprintf(os.Stdout, "[%s]: Uploading %s to %s\n", target.Host, source, destination)
-			err = Upload(ctx, client, source, destination)
+			err = Upload(ctx, client, sourcePath, destinationPath)
 		} else {
+			remoteSource, err := resolveScpRemotePath(taskContext, source)
+			if err != nil {
+				err2 := errors.New("Failed to resolve SCP source path: " + err.Error())
+				err2 = errors.WithCause(err2, err)
+				return err2
+			}
+
+			if optional {
+				exists, err := remoteScpFileExists(client, remoteSource)
+				if err != nil {
+					err2 := errors.New("Failed to check optional SCP source path: " + err.Error())
+					err2 = errors.WithCause(err2, err)
+					return err2
+				}
+				if !exists {
+					continue
+				}
+			}
+
+			destinationPath, err := resolveScpLocalPath(taskContext, destination)
+			if err != nil {
+				err2 := errors.New("Failed to resolve SCP destination path: " + err.Error())
+				err2 = errors.WithCause(err2, err)
+				return err2
+			}
+
 			fmt.Fprintf(os.Stdout, "[%s]: Downloading %s to %s\n", target.Host, source, destination)
-			err = Download(ctx, client, destination, source)
+			err = Download(ctx, client, remoteSource, destinationPath)
 		}
 
 		if err != nil {
+			if optional && direction == "download" && isMissingScpFile(err) {
+				continue
+			}
+
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				return err
 			}
@@ -366,13 +564,6 @@ func Upload(ctx context.Context, c *goph.Client, localPath string, remotePath st
 
 // Download file from remote server!
 func Download(ctx context.Context, c *goph.Client, remotePath string, localPath string) (err error) {
-
-	local, err := os.Create(localPath)
-	if err != nil {
-		return
-	}
-	defer local.Close()
-
 	ftp, err := c.NewSftp()
 	if err != nil {
 		return
@@ -384,6 +575,12 @@ func Download(ctx context.Context, c *goph.Client, remotePath string, localPath 
 		return
 	}
 	defer remote.Close()
+
+	local, err := os.Create(localPath)
+	if err != nil {
+		return
+	}
+	defer local.Close()
 
 	_, err = io.Copy(local, readerFunc(func(p []byte) (int, error) {
 

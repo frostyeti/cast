@@ -5,8 +5,11 @@ import (
 	"go.yaml.in/yaml/v4"
 )
 
+// InventoryDefaults stores reusable host defaults by name.
 type InventoryDefaults map[string]HostDefaults
 
+// Inventory defines hosts and shared defaults for a project.
+// Hosts may be declared as a mapping or as a sequence of host scalars.
 type Inventory struct {
 	Defaults  InventoryDefaults   `yaml:"defaults,omitempty" json:"defaults,omitempty"`
 	Hosts     map[string]HostInfo `yaml:"hosts,omitempty" json:"hosts,omitempty"`
@@ -31,6 +34,10 @@ func (iv *Inventory) UnmarshalYAML(node *yaml.Node) error {
 
 	if iv.HostOrder == nil {
 		iv.HostOrder = []string{}
+	}
+
+	if node.Kind == yaml.DocumentNode && len(node.Content) > 0 {
+		node = node.Content[0]
 	}
 
 	if node.Kind != yaml.MappingNode {

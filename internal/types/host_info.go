@@ -9,6 +9,8 @@ import (
 	"go.yaml.in/yaml/v4"
 )
 
+// HostInfo describes a single host entry.
+// Scalar syntax supports user@host:port shorthand.
 type HostInfo struct {
 	Host         string   `json:"host,omitempty"`
 	Port         *uint    `json:"port,omitempty"`
