@@ -3,10 +3,17 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"os/exec"
+	stdexec "os/exec"
 	"runtime"
 
 	"github.com/spf13/cobra"
+)
+
+var (
+	installDenoFunc = installDeno
+	installMiseFunc = installMise
+	installBunFunc  = installBun
+	runMiseCmdFunc  = runMiseCmd
 )
 
 var toolCmd = &cobra.Command{
@@ -21,36 +28,42 @@ var toolInstallCmd = &cobra.Command{
 	Short:              "Install a tool",
 	DisableFlagParsing: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		for _, a := range args {
-			if a == "-h" || a == "--help" {
-				return cmd.Help()
-			}
-		}
-
-		if len(args) == 0 {
-			// Fallback to empty install which installs from mise.toml
-			return runMiseCmd([]string{"install"})
-		}
-
-		// Find the tool name (first non-flag argument)
-		tool := ""
-		for _, a := range args {
-			if len(a) > 0 && a[0] != '-' {
-				tool = a
-				break
-			}
-		}
-
-		switch tool {
-		case "deno":
-			return installDeno()
-		case "mise":
-			return installMise()
-		default:
-			// Fallback to mise install
-			return runMiseCmd(append([]string{"install"}, args...))
-		}
+		return handleToolInstall(cmd, args)
 	},
+}
+
+func handleToolInstall(cmd *cobra.Command, args []string) error {
+	for _, a := range args {
+		if a == "-h" || a == "--help" {
+			return cmd.Help()
+		}
+	}
+
+	if len(args) == 0 {
+		// Fallback to empty install which installs from mise.toml
+		return runMiseCmdFunc([]string{"install"})
+	}
+
+	// Find the tool name (first non-flag argument)
+	tool := ""
+	for _, a := range args {
+		if len(a) > 0 && a[0] != '-' {
+			tool = a
+			break
+		}
+	}
+
+	switch tool {
+	case "deno":
+		return installDenoFunc()
+	case "bun":
+		return installBunFunc()
+	case "mise":
+		return installMiseFunc()
+	default:
+		// Fallback to mise install
+		return runMiseCmdFunc(append([]string{"install"}, args...))
+	}
 }
 
 var toolWhereCmd = &cobra.Command{
@@ -140,17 +153,36 @@ func init() {
 }
 
 func installDeno() error {
-	if _, err := exec.LookPath("deno"); err == nil {
+	if _, err := stdexec.LookPath("deno"); err == nil {
 		fmt.Println("deno is already installed and accessible in $PATH.")
 		return nil
 	}
 
 	fmt.Println("Installing deno...")
-	var cmd *exec.Cmd
+	var cmd *stdexec.Cmd
 	if runtime.GOOS == "windows" {
-		cmd = exec.Command("powershell", "-c", "irm https://deno.land/install.ps1 | iex")
+		cmd = stdexec.Command("powershell", "-c", "irm https://deno.land/install.ps1 | iex")
 	} else {
-		cmd = exec.Command("sh", "-c", "curl -fsSL https://deno.land/x/install/install.sh | sh")
+		cmd = stdexec.Command("sh", "-c", "curl -fsSL https://deno.land/x/install/install.sh | sh")
+	}
+
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+func installBun() error {
+	if _, err := stdexec.LookPath("bun"); err == nil {
+		fmt.Println("bun is already installed and accessible in $PATH.")
+		return nil
+	}
+
+	fmt.Println("Installing bun...")
+	var cmd *stdexec.Cmd
+	if runtime.GOOS == "windows" {
+		cmd = stdexec.Command("powershell", "-c", "irm https://bun.sh/install.ps1 | iex")
+	} else {
+		cmd = stdexec.Command("sh", "-c", "curl -fsSL https://bun.sh/install | bash")
 	}
 
 	cmd.Stdout = os.Stdout
@@ -159,17 +191,17 @@ func installDeno() error {
 }
 
 func installMise() error {
-	if _, err := exec.LookPath("mise"); err == nil {
+	if _, err := stdexec.LookPath("mise"); err == nil {
 		fmt.Println("mise is already installed and accessible in $PATH.")
 		return nil
 	}
 
 	fmt.Println("Installing mise...")
-	var cmd *exec.Cmd
+	var cmd *stdexec.Cmd
 	if runtime.GOOS == "windows" {
-		cmd = exec.Command("powershell", "-c", "irm https://mise.run | iex") // Just in case mise supports it this way
+		cmd = stdexec.Command("powershell", "-c", "irm https://mise.run | iex") // Just in case mise supports it this way
 	} else {
-		cmd = exec.Command("sh", "-c", "curl https://mise.run | sh")
+		cmd = stdexec.Command("sh", "-c", "curl https://mise.run | sh")
 	}
 
 	cmd.Stdout = os.Stdout
@@ -182,14 +214,14 @@ func installMise() error {
 }
 
 func runMiseCmd(args []string) error {
-	if _, err := exec.LookPath("mise"); err != nil {
+	if _, err := stdexec.LookPath("mise"); err != nil {
 		fmt.Println("mise is not installed or not in $PATH. Attempting to install mise first...")
-		if err := installMise(); err != nil {
+		if err := installMiseFunc(); err != nil {
 			return fmt.Errorf("failed to install mise: %w", err)
 		}
 	}
 
-	cmd := exec.Command("mise", args...)
+	cmd := stdexec.Command("mise", args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin

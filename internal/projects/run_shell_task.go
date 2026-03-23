@@ -2,11 +2,15 @@ package projects
 
 import (
 	"bufio"
+	"bytes"
+	"html/template"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 
+	"github.com/Masterminds/sprig"
 	"github.com/frostyeti/cast/internal/paths"
 	"github.com/frostyeti/cast/internal/scriptx/bash"
 	"github.com/frostyeti/cast/internal/scriptx/bun"
@@ -60,6 +64,27 @@ func runShell(ctx TaskContext) *TaskResult {
 
 	if run == "" {
 		return res.Fail(errors.New("No script provided for shell task"))
+	}
+
+	if ctx.Task.Template == "gotmpl" {
+		tmp, err := template.New(ctx.Task.Id).Funcs(sprig.FuncMap()).Parse(run)
+		if err != nil {
+			return res.Fail(errors.New("failed to parse template file: " + err.Error()))
+		}
+
+		data := map[string]any{
+			"env":  ctx.Task.Env,
+			"os":   runtime.GOOS,
+			"arch": runtime.GOARCH,
+		}
+
+		var buf bytes.Buffer
+		err = tmp.Execute(&buf, data)
+		if err != nil {
+			return res.Fail(errors.New("failed to parse template file: " + err.Error()))
+		}
+
+		run = buf.String()
 	}
 
 	splat := ctx.Task.Args
