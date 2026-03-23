@@ -36,7 +36,7 @@ func runRemoteTask(ctx TaskContext) *TaskResult {
 
 	if IsRemoteTask(uses) {
 		trustedSources := ctx.Project.Schema.TrustedSources
-		modulePath, err = FetchRemoteTask(ctx.Project, uses, trustedSources)
+		modulePath, err = FetchRemoteTask(ctx.Project, uses, trustedSources, ctx.Stdout)
 		if err != nil {
 			return res.Fail(err)
 		}

@@ -37,6 +37,9 @@ func init() {
 	project := env.Get("CAST_PROJECT")
 	context := env.Get("CAST_CONTEXT")
 
+	rootCmd.CompletionOptions.DisableDefaultCmd = true
+	rootCmd.SetHelpCommand(&cobra.Command{Hidden: true})
+
 	rootCmd.Flags().StringP("project", "p", project, "Path to the project file (castfile.yaml)")
 	rootCmd.Flags().StringP("context", "c", context, "Context name to use from the project")
 	rootCmd.Flags().StringArrayP("dotenv", "E", []string{}, "List of dotenv files to load")

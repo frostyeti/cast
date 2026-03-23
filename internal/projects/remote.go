@@ -1,9 +1,11 @@
 package projects
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -17,6 +19,66 @@ type remoteGitTarget struct {
 	version    string
 	subPath    string
 	cacheParts []string
+}
+
+func remoteTaskStdoutWriter(stdout io.Writer) io.Writer {
+	if stdout != nil {
+		return stdout
+	}
+
+	return os.Stdout
+}
+
+func isDebugLoggingEnabled() bool {
+	v := strings.ToLower(strings.TrimSpace(os.Getenv("CAST_DEBUG")))
+	switch v {
+	case "1", "true", "yes", "on", "debug":
+		return true
+	default:
+		return false
+	}
+}
+
+func writeGitStdoutIfDebug(stdout io.Writer, gitStdout []byte) {
+	if !isDebugLoggingEnabled() || len(gitStdout) == 0 {
+		return
+	}
+
+	writer := remoteTaskStdoutWriter(stdout)
+	_, _ = writer.Write(gitStdout)
+	if !bytes.HasSuffix(gitStdout, []byte("\n")) {
+		_, _ = io.WriteString(writer, "\n")
+	}
+}
+
+func formatGitCommandError(prefix string, err error, code int, gitStdout []byte) error {
+	if err == nil {
+		err = errors.Newf("exit code %d", code)
+	}
+
+	if isDebugLoggingEnabled() && len(bytes.TrimSpace(gitStdout)) > 0 {
+		return errors.Newf("%s: %v\n%s", prefix, err, string(gitStdout))
+	}
+
+	return errors.Newf("%s: %v", prefix, err)
+}
+
+func runGitCommand(cmd *exec.Cmd) ([]byte, int, error) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.WithStdout(&stdout)
+	cmd.WithStderr(&stderr)
+
+	out, err := cmd.Run()
+	code := 0
+	if out != nil {
+		code = out.Code
+		if stdout.Len() == 0 && len(out.Stdout) > 0 {
+			stdout.Write(out.Stdout)
+		}
+	}
+
+	return stdout.Bytes(), code, err
 }
 
 func splitVersionAndSubPath(ref string) (string, string) {
@@ -254,7 +316,9 @@ func IsRemoteTask(uses string) bool {
 }
 
 // FetchRemoteTask resolves and downloads a remote task, returning the local file path to the entrypoint module.
-func FetchRemoteTask(p *Project, uses string, trustedSources []string) (string, error) {
+func FetchRemoteTask(p *Project, uses string, trustedSources []string, stdout io.Writer) (string, error) {
+	stdoutWriter := remoteTaskStdoutWriter(stdout)
+
 	// First, check trusted sources
 	isTrusted := false
 	if len(trustedSources) == 0 || strings.HasPrefix(uses, "./") || strings.HasPrefix(uses, "../") || filepath.IsAbs(uses) {
@@ -282,10 +346,13 @@ func FetchRemoteTask(p *Project, uses string, trustedSources []string) (string, 
 		stat, err := os.Stat(entryFile)
 		if err == nil && stat.IsDir() {
 			possibleFiles := []string{
+				"cast.task",
 				"cast",
 				"spell",
 				"cast.yaml",
+				"cast.yml",
 				"spell.yaml",
+				"spell.yml",
 				"mod.ts", "main.ts", "index.ts",
 				"mod.js", "main.js", "index.js",
 			}
@@ -332,6 +399,8 @@ func FetchRemoteTask(p *Project, uses string, trustedSources []string) (string, 
 		repoURL := target.repoURL
 
 		if _, err := os.Stat(taskDir); os.IsNotExist(err) {
+			fmt.Fprintf(stdoutWriter, "Fetching task: %s\n", uses)
+
 			var cmd *exec.Cmd
 			switch cloneMode {
 			case gitResolveCommit:
@@ -341,27 +410,32 @@ func FetchRemoteTask(p *Project, uses string, trustedSources []string) (string, 
 			default:
 				cmd = exec.New("git", "clone", "--depth", "1", "--branch", resolvedVersion, repoURL, taskDir)
 			}
-			out, err := cmd.Run()
-			if err != nil || out.Code != 0 {
+			gitStdout, code, err := runGitCommand(cmd)
+			writeGitStdoutIfDebug(stdoutWriter, gitStdout)
+			if err != nil || code != 0 {
 				if cloneMode == gitResolveBranch {
 					// If branch failed, try cloning without branch (some repositories might not have standard main/master)
 					cmd = exec.New("git", "clone", "--depth", "1", repoURL, taskDir)
-					out, err = cmd.Run()
-					if err != nil || out.Code != 0 {
-						return "", errors.Newf("failed to clone remote task: %v\n%s", err, out.Stdout)
+					gitStdout, code, err = runGitCommand(cmd)
+					writeGitStdoutIfDebug(stdoutWriter, gitStdout)
+					if err != nil || code != 0 {
+						return "", formatGitCommandError("failed to clone remote task", err, code, gitStdout)
 					}
 				} else {
-					return "", errors.Newf("failed to clone remote task: %v\n%s", err, out.Stdout)
+					return "", formatGitCommandError("failed to clone remote task", err, code, gitStdout)
 				}
 			}
 
 			if cloneMode == gitResolveCommit {
 				cmd = exec.New("git", "-C", taskDir, "checkout", "--detach", resolvedVersion)
-				out, err = cmd.Run()
-				if err != nil || out.Code != 0 {
-					return "", errors.Newf("failed to checkout remote task commit %s: %v\n%s", resolvedVersion, err, out.Stdout)
+				gitStdout, code, err = runGitCommand(cmd)
+				writeGitStdoutIfDebug(stdoutWriter, gitStdout)
+				if err != nil || code != 0 {
+					return "", formatGitCommandError(fmt.Sprintf("failed to checkout remote task commit %s", resolvedVersion), err, code, gitStdout)
 				}
 			}
+
+			fmt.Fprintln(stdoutWriter)
 		}
 
 		entryFile := taskDir
@@ -373,7 +447,7 @@ func FetchRemoteTask(p *Project, uses string, trustedSources []string) (string, 
 		stat, err := os.Stat(entryFile)
 		if err == nil && stat.IsDir() {
 			tryFiles := []string{
-				"cast", "cast.yaml", "spell", "spell.yaml",
+				"cast.task", "cast", "cast.yaml", "cast.yml", "spell", "spell.yaml", "spell.yml",
 				"mod.ts", "main.ts", "index.ts",
 				"mod.js", "main.js", "index.js",
 			}

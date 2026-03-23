@@ -1,6 +1,8 @@
 package projects
 
 import (
+	"bytes"
+	stdErrors "errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -144,6 +146,39 @@ func TestResolveGitReference_HeadBranchAndSha(t *testing.T) {
 
 	if got, mode := resolveGitReference(repoDir, "feature/login", ""); got != "feature/login" || mode != gitResolveBranch {
 		t.Fatalf("resolveGitReference(branch) = (%q, %v), want (feature/login, branch)", got, mode)
+	}
+}
+
+func TestWriteGitStdoutIfDebug(t *testing.T) {
+	buf := &bytes.Buffer{}
+	payload := []byte("git stdout line")
+
+	t.Setenv("CAST_DEBUG", "0")
+	writeGitStdoutIfDebug(buf, payload)
+	if got := buf.String(); got != "" {
+		t.Fatalf("expected no git stdout without debug logging, got %q", got)
+	}
+
+	t.Setenv("CAST_DEBUG", "1")
+	writeGitStdoutIfDebug(buf, payload)
+	if got := buf.String(); got != "git stdout line\n" {
+		t.Fatalf("expected git stdout with trailing newline in debug mode, got %q", got)
+	}
+}
+
+func TestFormatGitCommandError_DebugGate(t *testing.T) {
+	gErr := stdErrors.New("boom")
+
+	t.Setenv("CAST_DEBUG", "0")
+	err := formatGitCommandError("failed to clone remote task", gErr, 1, []byte("sensitive clone details\n"))
+	if strings.Contains(err.Error(), "sensitive clone details") {
+		t.Fatalf("expected git stdout to be hidden without debug logging, got %q", err.Error())
+	}
+
+	t.Setenv("CAST_DEBUG", "1")
+	err = formatGitCommandError("failed to clone remote task", gErr, 1, []byte("debug clone details\n"))
+	if !strings.Contains(err.Error(), "debug clone details") {
+		t.Fatalf("expected git stdout to be shown with debug logging, got %q", err.Error())
 	}
 }
 
