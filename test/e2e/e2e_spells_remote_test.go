@@ -75,9 +75,21 @@ tasks:
 		t.Fatalf("expected hello-world output on cached run, got: %s", secondOutStr)
 	}
 
+	helloCacheBase := filepath.Join(projectDir, ".cast", "cache", "tasks", "cast", "examples-hello-world", "HEAD", "repo")
+	if _, err := os.Stat(filepath.Join(helloCacheBase, "examples", "hello-world", "spell")); err != nil {
+		t.Fatalf("expected sparse subpath spell to exist in cache: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(helloCacheBase, "cast.task")); err == nil {
+		t.Fatalf("did not expect root repo cast.task in sparse cache for subpath checkout")
+	}
+
+	bunCacheBase := filepath.Join(projectDir, ".cast", "cache", "tasks", "cast", "examples-bun-with-inputs", "HEAD", "repo")
 	bunRun := exec.Command("timeout", "90", binPath, "bun-inputs")
 	bunRun.Dir = projectDir
 	bunOutput, bunErr := bunRun.CombinedOutput()
+	if _, err := os.Stat(filepath.Join(bunCacheBase, "examples", "bun-with-inputs", "spell")); err != nil {
+		t.Fatalf("expected sparse bun subpath spell to exist in cache: %v", err)
+	}
 	if bunErr != nil {
 		if !strings.Contains(string(bunOutput), "No such file or directory") &&
 			!strings.Contains(string(bunOutput), "executable file not found") &&

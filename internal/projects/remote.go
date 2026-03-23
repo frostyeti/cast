@@ -21,6 +21,12 @@ type remoteGitTarget struct {
 	cacheParts []string
 }
 
+type remoteCacheLayout struct {
+	repoDir  string
+	entryDir string
+	subPath  string
+}
+
 func remoteTaskStdoutWriter(stdout io.Writer) io.Writer {
 	if stdout != nil {
 		return stdout
@@ -79,6 +85,165 @@ func runGitCommand(cmd *exec.Cmd) ([]byte, int, error) {
 	}
 
 	return stdout.Bytes(), code, err
+}
+
+func runGitOrError(cmd *exec.Cmd, stdout io.Writer, prefix string) error {
+	gitStdout, code, err := runGitCommand(cmd)
+	writeGitStdoutIfDebug(stdout, gitStdout)
+	if err != nil || code != 0 {
+		return formatGitCommandError(prefix, err, code, gitStdout)
+	}
+
+	return nil
+}
+
+func normalizeRemoteSubPath(subPath string) (string, error) {
+	subPath = strings.TrimSpace(subPath)
+	if subPath == "" {
+		return "", nil
+	}
+
+	raw := strings.ReplaceAll(subPath, "\\", "/")
+	for _, part := range strings.Split(raw, "/") {
+		if part == ".." {
+			return "", errors.Newf("invalid remote task subpath: %s", subPath)
+		}
+	}
+
+	normalized := filepath.ToSlash(filepath.Clean("/" + subPath))
+	normalized = strings.TrimPrefix(normalized, "/")
+	if normalized == "" || normalized == "." {
+		return "", nil
+	}
+
+	if normalized == ".." || strings.HasPrefix(normalized, "../") {
+		return "", errors.Newf("invalid remote task subpath: %s", subPath)
+	}
+
+	return normalized, nil
+}
+
+func hyphenateRemoteSubPath(subPath string) string {
+	slug := strings.ReplaceAll(subPath, "/", "-")
+	slug = strings.ReplaceAll(slug, " ", "-")
+	slug = strings.Trim(slug, "-")
+	if slug == "" {
+		return "root"
+	}
+
+	return slug
+}
+
+func buildRemoteTaskCacheLayout(cacheDir, hashStr string, target remoteGitTarget, resolvedVersion string) (remoteCacheLayout, error) {
+	layout := remoteCacheLayout{}
+
+	normalizedSubPath, err := normalizeRemoteSubPath(target.subPath)
+	if err != nil {
+		return layout, err
+	}
+
+	layout.subPath = normalizedSubPath
+
+	if len(target.cacheParts) > 0 {
+		parts := append([]string{cacheDir}, target.cacheParts...)
+		if normalizedSubPath != "" {
+			slug := hyphenateRemoteSubPath(normalizedSubPath)
+			parts = append(parts, slug, resolvedVersion, "repo")
+		} else {
+			parts = append(parts, resolvedVersion)
+		}
+		layout.repoDir = filepath.Join(parts...)
+	} else {
+		parts := []string{cacheDir, hashStr}
+		if normalizedSubPath != "" {
+			slug := hyphenateRemoteSubPath(normalizedSubPath)
+			parts = append(parts, slug, resolvedVersion, "repo")
+		}
+		layout.repoDir = filepath.Join(parts...)
+	}
+
+	layout.entryDir = layout.repoDir
+	if normalizedSubPath != "" {
+		layout.entryDir = filepath.Join(layout.repoDir, filepath.FromSlash(normalizedSubPath))
+	}
+
+	return layout, nil
+}
+
+func cloneRemoteTaskRepository(repoURL, resolvedVersion string, cloneMode gitResolveMode, taskDir string, stdout io.Writer) error {
+	var cloneCmd *exec.Cmd
+	switch cloneMode {
+	case gitResolveCommit:
+		cloneCmd = exec.New("git", "clone", repoURL, taskDir)
+	case gitResolveDefault:
+		cloneCmd = exec.New("git", "clone", "--depth", "1", repoURL, taskDir)
+	default:
+		cloneCmd = exec.New("git", "clone", "--depth", "1", "--branch", resolvedVersion, repoURL, taskDir)
+	}
+
+	err := runGitOrError(cloneCmd, stdout, "failed to clone remote task")
+	if err != nil {
+		if cloneMode != gitResolveBranch {
+			return err
+		}
+
+		_ = os.RemoveAll(taskDir)
+		fallback := exec.New("git", "clone", "--depth", "1", repoURL, taskDir)
+		if fallbackErr := runGitOrError(fallback, stdout, "failed to clone remote task"); fallbackErr != nil {
+			return fallbackErr
+		}
+	}
+
+	if cloneMode == gitResolveCommit {
+		checkout := exec.New("git", "-C", taskDir, "checkout", "--detach", resolvedVersion)
+		return runGitOrError(checkout, stdout, fmt.Sprintf("failed to checkout remote task commit %s", resolvedVersion))
+	}
+
+	return nil
+}
+
+func cloneRemoteTaskRepositorySparse(repoURL, resolvedVersion string, cloneMode gitResolveMode, taskDir, subPath string, stdout io.Writer) error {
+	var cloneCmd *exec.Cmd
+	switch cloneMode {
+	case gitResolveCommit:
+		cloneCmd = exec.New("git", "clone", "--filter=blob:none", "--no-checkout", repoURL, taskDir)
+	case gitResolveDefault:
+		cloneCmd = exec.New("git", "clone", "--filter=blob:none", "--depth", "1", "--no-checkout", repoURL, taskDir)
+	default:
+		cloneCmd = exec.New("git", "clone", "--filter=blob:none", "--depth", "1", "--branch", resolvedVersion, "--no-checkout", repoURL, taskDir)
+	}
+
+	err := runGitOrError(cloneCmd, stdout, "failed to clone remote task")
+	if err != nil {
+		if cloneMode != gitResolveBranch {
+			return err
+		}
+
+		_ = os.RemoveAll(taskDir)
+		fallback := exec.New("git", "clone", "--filter=blob:none", "--depth", "1", "--no-checkout", repoURL, taskDir)
+		if fallbackErr := runGitOrError(fallback, stdout, "failed to clone remote task"); fallbackErr != nil {
+			return fallbackErr
+		}
+	}
+
+	if err := runGitOrError(exec.New("git", "-C", taskDir, "sparse-checkout", "init", "--no-cone"), stdout, "failed to initialize sparse checkout"); err != nil {
+		return err
+	}
+
+	patterns := []string{"-C", taskDir, "sparse-checkout", "set", "--", subPath}
+	if !strings.HasSuffix(subPath, "/") {
+		patterns = append(patterns, subPath+"/**")
+	}
+	if err := runGitOrError(exec.New("git", patterns...), stdout, "failed to set sparse checkout path"); err != nil {
+		return err
+	}
+
+	if cloneMode == gitResolveCommit {
+		checkout := exec.New("git", "-C", taskDir, "checkout", "--detach", resolvedVersion)
+		return runGitOrError(checkout, stdout, fmt.Sprintf("failed to checkout remote task commit %s", resolvedVersion))
+	}
+
+	return runGitOrError(exec.New("git", "-C", taskDir, "checkout"), stdout, "failed to checkout sparse remote task")
 }
 
 func splitVersionAndSubPath(ref string) (string, string) {
@@ -389,59 +554,41 @@ func FetchRemoteTask(p *Project, uses string, trustedSources []string, stdout io
 			return "", errors.Newf("invalid remote task identifier, version required: %s", uses)
 		}
 
-		resolvedVersion, cloneMode := resolveGitReference(target.repoURL, target.version, target.subPath)
-		if len(target.cacheParts) > 0 {
-			parts := append([]string{cacheDir}, target.cacheParts...)
-			parts = append(parts, resolvedVersion)
-			taskDir = filepath.Join(parts...)
+		normalizedSubPath, err := normalizeRemoteSubPath(target.subPath)
+		if err != nil {
+			return "", err
 		}
+		target.subPath = normalizedSubPath
+
+		resolvedVersion, cloneMode := resolveGitReference(target.repoURL, target.version, target.subPath)
+		layout, err := buildRemoteTaskCacheLayout(cacheDir, hashStr, target, resolvedVersion)
+		if err != nil {
+			return "", err
+		}
+		taskDir = layout.repoDir
 
 		repoURL := target.repoURL
 
 		if _, err := os.Stat(taskDir); os.IsNotExist(err) {
+			if err := os.MkdirAll(filepath.Dir(taskDir), 0o755); err != nil {
+				return "", err
+			}
+
 			fmt.Fprintf(stdoutWriter, "Fetching task: %s\n", uses)
 
-			var cmd *exec.Cmd
-			switch cloneMode {
-			case gitResolveCommit:
-				cmd = exec.New("git", "clone", repoURL, taskDir)
-			case gitResolveDefault:
-				cmd = exec.New("git", "clone", "--depth", "1", repoURL, taskDir)
-			default:
-				cmd = exec.New("git", "clone", "--depth", "1", "--branch", resolvedVersion, repoURL, taskDir)
+			if layout.subPath != "" {
+				err = cloneRemoteTaskRepositorySparse(repoURL, resolvedVersion, cloneMode, taskDir, layout.subPath, stdoutWriter)
+			} else {
+				err = cloneRemoteTaskRepository(repoURL, resolvedVersion, cloneMode, taskDir, stdoutWriter)
 			}
-			gitStdout, code, err := runGitCommand(cmd)
-			writeGitStdoutIfDebug(stdoutWriter, gitStdout)
-			if err != nil || code != 0 {
-				if cloneMode == gitResolveBranch {
-					// If branch failed, try cloning without branch (some repositories might not have standard main/master)
-					cmd = exec.New("git", "clone", "--depth", "1", repoURL, taskDir)
-					gitStdout, code, err = runGitCommand(cmd)
-					writeGitStdoutIfDebug(stdoutWriter, gitStdout)
-					if err != nil || code != 0 {
-						return "", formatGitCommandError("failed to clone remote task", err, code, gitStdout)
-					}
-				} else {
-					return "", formatGitCommandError("failed to clone remote task", err, code, gitStdout)
-				}
-			}
-
-			if cloneMode == gitResolveCommit {
-				cmd = exec.New("git", "-C", taskDir, "checkout", "--detach", resolvedVersion)
-				gitStdout, code, err = runGitCommand(cmd)
-				writeGitStdoutIfDebug(stdoutWriter, gitStdout)
-				if err != nil || code != 0 {
-					return "", formatGitCommandError(fmt.Sprintf("failed to checkout remote task commit %s", resolvedVersion), err, code, gitStdout)
-				}
+			if err != nil {
+				return "", err
 			}
 
 			fmt.Fprintln(stdoutWriter)
 		}
 
-		entryFile := taskDir
-		if target.subPath != "" {
-			entryFile = filepath.Join(taskDir, target.subPath)
-		}
+		entryFile := layout.entryDir
 
 		// Check if it's a directory, if so look for cast.task or standard entrypoints
 		stat, err := os.Stat(entryFile)

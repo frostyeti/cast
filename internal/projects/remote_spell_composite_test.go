@@ -155,4 +155,21 @@ func TestRunRemoteTaskFetchNoticeAndSpacing(t *testing.T) {
 	if !strings.Contains(second, "hello fetched") {
 		t.Fatalf("expected cached task output, got: %q", second)
 	}
+
+	matches, err := filepath.Glob(filepath.Join(projectDir, ".cast", "cache", "tasks", "*", "examples-hello-world", "v1.0.0", "repo"))
+	if err != nil {
+		t.Fatalf("expected sparse repo cache glob to succeed, got error: %v", err)
+	}
+	if len(matches) == 0 {
+		t.Fatalf("expected sparse repo cache dir to exist for file:// remote task")
+	}
+
+	cacheRepoDir := matches[0]
+	entryDir := filepath.Join(cacheRepoDir, "examples", "hello-world")
+	if _, err := os.Stat(entryDir); err != nil {
+		t.Fatalf("expected sparse entry dir to exist: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(cacheRepoDir, "cast.task")); err == nil {
+		t.Fatalf("did not expect root cast.task in sparse checkout for subpath")
+	}
 }

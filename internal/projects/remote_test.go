@@ -182,6 +182,70 @@ func TestFormatGitCommandError_DebugGate(t *testing.T) {
 	}
 }
 
+func TestBuildRemoteTaskCacheLayout_Subpath(t *testing.T) {
+	target := remoteGitTarget{
+		cacheParts: []string{"github", "frostyeti", "spells"},
+		subPath:    "examples/hello-world",
+	}
+
+	layout, err := buildRemoteTaskCacheLayout(filepath.Join(".cast", "cache", "tasks"), "deadbeef", target, "HEAD")
+	if err != nil {
+		t.Fatalf("buildRemoteTaskCacheLayout returned error: %v", err)
+	}
+
+	repoPath := filepath.ToSlash(layout.repoDir)
+	if !strings.Contains(repoPath, "/github/frostyeti/spells/examples-hello-world/HEAD/repo") {
+		t.Fatalf("unexpected repoDir layout: %s", repoPath)
+	}
+
+	entryPath := filepath.ToSlash(layout.entryDir)
+	if !strings.HasSuffix(entryPath, "/repo/examples/hello-world") {
+		t.Fatalf("unexpected entryDir layout: %s", entryPath)
+	}
+}
+
+func TestBuildRemoteTaskCacheLayout_CastSubpath(t *testing.T) {
+	target := remoteGitTarget{
+		cacheParts: []string{"cast"},
+		subPath:    "examples/bun-with-inputs",
+	}
+
+	layout, err := buildRemoteTaskCacheLayout(filepath.Join(".cast", "cache", "tasks"), "deadbeef", target, "v1.2.3")
+	if err != nil {
+		t.Fatalf("buildRemoteTaskCacheLayout returned error: %v", err)
+	}
+
+	repoPath := filepath.ToSlash(layout.repoDir)
+	if !strings.Contains(repoPath, "/cast/examples-bun-with-inputs/v1.2.3/repo") {
+		t.Fatalf("unexpected cast repoDir layout: %s", repoPath)
+	}
+
+	entryPath := filepath.ToSlash(layout.entryDir)
+	if !strings.HasSuffix(entryPath, "/repo/examples/bun-with-inputs") {
+		t.Fatalf("unexpected cast entryDir layout: %s", entryPath)
+	}
+}
+
+func TestNormalizeRemoteSubPath(t *testing.T) {
+	got, err := normalizeRemoteSubPath("examples/hello-world")
+	if err != nil {
+		t.Fatalf("normalizeRemoteSubPath returned error: %v", err)
+	}
+	if got != "examples/hello-world" {
+		t.Fatalf("normalizeRemoteSubPath normalized to %q, want examples/hello-world", got)
+	}
+
+	if _, err := normalizeRemoteSubPath("../../etc/passwd"); err == nil {
+		t.Fatalf("expected normalizeRemoteSubPath to reject path traversal")
+	}
+}
+
+func TestHyphenateRemoteSubPath(t *testing.T) {
+	if got := hyphenateRemoteSubPath("examples/hello-world"); got != "examples-hello-world" {
+		t.Fatalf("hyphenateRemoteSubPath returned %q, want examples-hello-world", got)
+	}
+}
+
 func runGit(t *testing.T, dir string, args ...string) {
 	t.Helper()
 	cmd := exec.Command("git", args...)

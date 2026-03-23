@@ -18,6 +18,11 @@ tasks:
   ello:
     uses: spell:examples/hello-world@head
 
+  test-bun:
+    uses: spell:examples/bun-with-inputs@head
+    with:
+      greeting: "greet"
+
 jobs:
   slow_job:
     cron: "*/1 * * * *"
