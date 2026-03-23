@@ -32,7 +32,7 @@ func TestRunRemoteTaskSpellComposite(t *testing.T) {
 		t.Fatalf("write spell: %v", err)
 	}
 
-	if !isCastTaskDefinitionFile(spellPath) {
+	if !IsCastTaskDefinitionFile(spellPath) {
 		t.Fatalf("expected %s to be detected as a cast task definition", spellPath)
 	}
 
@@ -156,15 +156,29 @@ func TestRunRemoteTaskFetchNoticeAndSpacing(t *testing.T) {
 		t.Fatalf("expected cached task output, got: %q", second)
 	}
 
-	matches, err := filepath.Glob(filepath.Join(projectDir, ".cast", "cache", "tasks", "*", "examples-hello-world", "v1.0.0", "repo"))
+	matches, err := filepath.Glob(filepath.Join("*", "examples-hello-world", "v1.0.0", "repo"))
 	if err != nil {
 		t.Fatalf("expected sparse repo cache glob to succeed, got error: %v", err)
+	}
+	if len(matches) == 0 {
+		globalBase := ResolveRemoteTasksDir(projectDir)
+		matches, err = filepath.Glob(filepath.Join(globalBase, "*", "examples-hello-world", "v1.0.0", "repo"))
+		if err != nil {
+			t.Fatalf("expected global sparse repo cache glob to succeed, got error: %v", err)
+		}
 	}
 	if len(matches) == 0 {
 		t.Fatalf("expected sparse repo cache dir to exist for file:// remote task")
 	}
 
 	cacheRepoDir := matches[0]
+	if !filepath.IsAbs(cacheRepoDir) {
+		if localPath := filepath.Join(projectDir, ".cast", "cache", "tasks", cacheRepoDir); isDir(localPath) {
+			cacheRepoDir = localPath
+		} else {
+			cacheRepoDir = filepath.Join(ResolveRemoteTasksDir(projectDir), cacheRepoDir)
+		}
+	}
 	entryDir := filepath.Join(cacheRepoDir, "examples", "hello-world")
 	if _, err := os.Stat(entryDir); err != nil {
 		t.Fatalf("expected sparse entry dir to exist: %v", err)
@@ -172,4 +186,9 @@ func TestRunRemoteTaskFetchNoticeAndSpacing(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(cacheRepoDir, "cast.task")); err == nil {
 		t.Fatalf("did not expect root cast.task in sparse checkout for subpath")
 	}
+}
+
+func isDir(path string) bool {
+	stat, err := os.Stat(path)
+	return err == nil && stat.IsDir()
 }

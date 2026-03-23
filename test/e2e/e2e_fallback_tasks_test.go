@@ -62,9 +62,9 @@ export function run() {
 `), 0644)
 	require.NoError(t, err)
 
-	// 3. Global task (~/.local/share/cast/tasks/global-task)
+	// 3. Global task (~/.local/cast/tasks/global-task)
 	homeDir := filepath.Join(tmpDir, "home")
-	globalTaskDir := filepath.Join(homeDir, ".local", "share", "cast", "tasks", "global-task")
+	globalTaskDir := filepath.Join(homeDir, ".local", "cast", "tasks", "global-task")
 	err = os.MkdirAll(globalTaskDir, 0755)
 	require.NoError(t, err)
 

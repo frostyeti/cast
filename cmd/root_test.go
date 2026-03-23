@@ -31,4 +31,8 @@ func TestRootCommand(t *testing.T) {
 	if strings.Contains(output, "\n  help        Help about any command\n") {
 		t.Errorf("expected help subcommand to be hidden from help output, got: %s", output)
 	}
+
+	if !strings.Contains(output, "\n  task        Manage and run tasks\n") {
+		t.Errorf("expected task command in root help output, got: %s", output)
+	}
 }

@@ -14,6 +14,16 @@ import (
 	"github.com/frostyeti/go/exec"
 )
 
+const (
+	CastRemoteTasksDirEnv         = "CAST_REMOTE_TASKS_DIR"
+	CastVolatileRemoteTasksDirEnv = "CAST_VOLATILE_REMOTE_TASKS_DIR"
+)
+
+type FetchRemoteTaskOptions struct {
+	Stdout       io.Writer
+	ForceRefresh bool
+}
+
 type remoteGitTarget struct {
 	repoURL    string
 	version    string
@@ -25,6 +35,76 @@ type remoteCacheLayout struct {
 	repoDir  string
 	entryDir string
 	subPath  string
+}
+
+func resolveConfiguredRemoteTasksDir(projectDir, envKey, defaultPath string) string {
+	dir := strings.TrimSpace(os.Getenv(envKey))
+	if dir == "" {
+		dir = defaultPath
+	}
+
+	if filepath.IsAbs(dir) {
+		return dir
+	}
+
+	return filepath.Join(projectDir, dir)
+}
+
+func stableRemoteTasksDir(projectDir string) string {
+	homeDir, _ := os.UserHomeDir()
+	defaultDir := filepath.Join(homeDir, ".local", "cast", "tasks")
+	return resolveConfiguredRemoteTasksDir(projectDir, CastRemoteTasksDirEnv, defaultDir)
+}
+
+func volatileRemoteTasksDir(p *Project) string {
+	defaultDir := filepath.Join(p.Dir, ".cast", "cache", "tasks")
+	return resolveConfiguredRemoteTasksDir(p.Dir, CastVolatileRemoteTasksDirEnv, defaultDir)
+}
+
+// ResolveRemoteTasksDir resolves the stable remote tasks directory.
+func ResolveRemoteTasksDir(projectDir string) string {
+	return stableRemoteTasksDir(projectDir)
+}
+
+// ResolveVolatileRemoteTasksDir resolves the volatile remote tasks directory.
+func ResolveVolatileRemoteTasksDir(projectDir string) string {
+	defaultDir := filepath.Join(projectDir, ".cast", "cache", "tasks")
+	return resolveConfiguredRemoteTasksDir(projectDir, CastVolatileRemoteTasksDirEnv, defaultDir)
+}
+
+func isVolatileRemoteReference(version string, mode gitResolveMode) bool {
+	if version == "" || isHeadRef(version) {
+		return true
+	}
+
+	if mode == gitResolveCommit {
+		return false
+	}
+
+	if version == "main" || version == "master" {
+		return true
+	}
+
+	if !looksLikeRemoteVersion(version) {
+		return true
+	}
+
+	return false
+}
+
+// IsVolatileRemoteTaskRef reports if a remote reference is branch/head based.
+func IsVolatileRemoteTaskRef(uses string) bool {
+	if !IsRemoteTask(uses) {
+		return false
+	}
+
+	target, err := parseRemoteGitTarget(uses)
+	if err != nil {
+		return false
+	}
+
+	_, mode := resolveGitReference(target.repoURL, target.version, target.subPath)
+	return isVolatileRemoteReference(target.version, mode)
 }
 
 func remoteTaskStdoutWriter(stdout io.Writer) io.Writer {
@@ -471,7 +551,6 @@ func IsRemoteTask(uses string) bool {
 		strings.HasPrefix(uses, "github.com/") ||
 		strings.HasPrefix(uses, "gitlab.com/") ||
 		strings.HasPrefix(uses, "dev.azure.com/") ||
-		strings.HasPrefix(uses, "@") ||
 		strings.HasPrefix(uses, "jsr:") ||
 		strings.HasPrefix(uses, "npm:") ||
 		strings.HasPrefix(uses, "file://") ||
@@ -481,8 +560,8 @@ func IsRemoteTask(uses string) bool {
 }
 
 // FetchRemoteTask resolves and downloads a remote task, returning the local file path to the entrypoint module.
-func FetchRemoteTask(p *Project, uses string, trustedSources []string, stdout io.Writer) (string, error) {
-	stdoutWriter := remoteTaskStdoutWriter(stdout)
+func fetchRemoteTaskWithOptions(p *Project, uses string, trustedSources []string, opts FetchRemoteTaskOptions) (string, error) {
+	stdoutWriter := remoteTaskStdoutWriter(opts.Stdout)
 
 	// First, check trusted sources
 	isTrusted := false
@@ -532,12 +611,9 @@ func FetchRemoteTask(p *Project, uses string, trustedSources []string, stdout io
 
 	VerifyChecksumAndRefresh(p)
 
-	cacheDir := filepath.Join(p.Dir, ".cast", "cache", "tasks")
-	os.MkdirAll(cacheDir, 0755)
-
 	hash := sha256.Sum256([]byte(uses))
 	hashStr := hex.EncodeToString(hash[:])
-	taskDir := filepath.Join(cacheDir, hashStr)
+	taskDir := ""
 
 	// If it's a JSR or NPM package, Deno handles it natively via import "jsr:..." or "npm:..."
 	// We don't necessarily need to download it manually if Deno wrapper will do it, but the prompt says:
@@ -561,6 +637,15 @@ func FetchRemoteTask(p *Project, uses string, trustedSources []string, stdout io
 		target.subPath = normalizedSubPath
 
 		resolvedVersion, cloneMode := resolveGitReference(target.repoURL, target.version, target.subPath)
+		cacheDir := volatileRemoteTasksDir(p)
+		if !isVolatileRemoteReference(target.version, cloneMode) {
+			cacheDir = stableRemoteTasksDir(p.Dir)
+		}
+
+		if err := os.MkdirAll(cacheDir, 0o755); err != nil {
+			return "", err
+		}
+
 		layout, err := buildRemoteTaskCacheLayout(cacheDir, hashStr, target, resolvedVersion)
 		if err != nil {
 			return "", err
@@ -568,6 +653,10 @@ func FetchRemoteTask(p *Project, uses string, trustedSources []string, stdout io
 		taskDir = layout.repoDir
 
 		repoURL := target.repoURL
+
+		if opts.ForceRefresh {
+			_ = os.RemoveAll(taskDir)
+		}
 
 		if _, err := os.Stat(taskDir); os.IsNotExist(err) {
 			if err := os.MkdirAll(filepath.Dir(taskDir), 0o755); err != nil {
@@ -605,15 +694,22 @@ func FetchRemoteTask(p *Project, uses string, trustedSources []string, stdout io
 			}
 		}
 		return entryFile, nil
-	} else if strings.HasPrefix(uses, "jsr:") || strings.HasPrefix(uses, "npm:") || strings.HasPrefix(uses, "@") {
+	} else if strings.HasPrefix(uses, "jsr:") || strings.HasPrefix(uses, "npm:") {
 		// For JSR/NPM, we can just return the URI itself and let Deno's native module resolution handle it in the wrapper
 		// Or we can cache it. "Fetch the manifest and module using standard HTTP requests or Deno's tooling."
 		// Returning the string allows the Deno wrapper to just import it!
-		if strings.HasPrefix(uses, "@") {
-			return "jsr:" + uses, nil // Default to JSR for @scope
-		}
 		return uses, nil
 	}
 
 	return "", errors.Newf("unsupported remote task URI: %s", uses)
+}
+
+// FetchRemoteTask resolves and downloads a remote task, returning the local file path to the entrypoint module.
+func FetchRemoteTask(p *Project, uses string, trustedSources []string, stdout io.Writer) (string, error) {
+	return fetchRemoteTaskWithOptions(p, uses, trustedSources, FetchRemoteTaskOptions{Stdout: stdout})
+}
+
+// FetchRemoteTaskWithOptions resolves and downloads a remote task with control options.
+func FetchRemoteTaskWithOptions(p *Project, uses string, trustedSources []string, opts FetchRemoteTaskOptions) (string, error) {
+	return fetchRemoteTaskWithOptions(p, uses, trustedSources, opts)
 }

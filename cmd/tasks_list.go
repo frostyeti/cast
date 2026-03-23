@@ -24,12 +24,16 @@ var taskListCmd = &cobra.Command{
 			// always will be the cli command
 			args = args[1:]
 
-			if len(args) > 0 && args[0] == "run" {
+			if len(args) > 0 && (args[0] == "task" || args[0] == "tasks") {
+				args = args[1:]
+			}
+
+			if len(args) > 0 && (args[0] == "list" || args[0] == "ls") {
 				args = args[1:]
 			} else if len(args) > 0 {
 				index := -1
 				for i, arg := range args {
-					if arg == "run" {
+					if arg == "list" || arg == "ls" {
 						index = i
 						break
 					}

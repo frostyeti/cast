@@ -25,7 +25,14 @@ var tasksExecCmd = &cobra.Command{
 		if len(args) > 0 {
 			// always will be the cli command
 			args = args[1:]
-			commandName := args[0]
+			if len(args) > 0 && (args[0] == "task" || args[0] == "tasks") {
+				args = args[1:]
+			}
+
+			commandName := ""
+			if len(args) > 0 {
+				commandName = args[0]
+			}
 
 			if len(args) > 0 && (commandName == "exec" || commandName == "x") {
 				args = args[1:]

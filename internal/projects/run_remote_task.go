@@ -11,7 +11,7 @@ import (
 	"github.com/frostyeti/go/exec"
 )
 
-func isCastTaskDefinitionFile(path string) bool {
+func IsCastTaskDefinitionFile(path string) bool {
 	if path == "" {
 		return false
 	}
@@ -45,7 +45,7 @@ func runRemoteTask(ctx TaskContext) *TaskResult {
 		modulePath = uses
 	}
 
-	if isCastTaskDefinitionFile(modulePath) {
+	if IsCastTaskDefinitionFile(modulePath) {
 		return runCastTask(ctx, modulePath)
 	}
 

@@ -1,30 +1,29 @@
-tasks:
-  slow_task:
-    uses: bash
-    run: |
-      echo "Starting task..."
-      for i in {1..5}; do
-        echo "Task running $i..."
-        sleep 1
-      done
-      echo "Task done!"
-
-  test:
-    uses: docker
-    with:
-      image: golang:1.26
-    run: go test ./...
-
-  ello:
-    uses: spell:examples/hello-world@head
-
-  test-bun:
-    uses: spell:examples/bun-with-inputs@head
-    with:
-      greeting: "greet"
-
 jobs:
-  slow_job:
-    cron: "*/1 * * * *"
-    steps:
-      - slow_task
+    slow_job:
+        cron: '*/1 * * * *'
+        steps:
+            - slow_task
+tasks:
+    ello:
+        uses: spell:examples/hello-world@head
+    slow_task:
+        run: |
+            echo "Starting task..."
+            for i in {1..5}; do
+              echo "Task running $i..."
+              sleep 1
+            done
+            echo "Task done!"
+        uses: bash
+    test:
+        run: go test ./...
+        uses: docker
+        with:
+            image: golang:1.26
+    test-bun:
+        uses: spell:examples/bun-with-inputs@head
+        with:
+            greeting: greet
+    yolo:
+        run: echo "test"
+        uses: shell

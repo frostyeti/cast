@@ -34,6 +34,36 @@ type RunTasksParams struct {
 }
 
 func findFallbackTask(uses string, projectDir string) (string, bool) {
+	if strings.HasPrefix(uses, "@") {
+		alias := strings.TrimPrefix(uses, "@")
+		if alias == "" {
+			return "", false
+		}
+
+		aliasPath := filepath.FromSlash(alias)
+		localTasksDir := filepath.Join(projectDir, ".cast", "tasks")
+		possibleAliasPaths := []string{
+			filepath.Join(localTasksDir, aliasPath, "cast.task"),
+			filepath.Join(localTasksDir, aliasPath, "cast"),
+			filepath.Join(localTasksDir, aliasPath, "spell"),
+			filepath.Join(localTasksDir, aliasPath, "cast.yaml"),
+			filepath.Join(localTasksDir, aliasPath, "cast.yml"),
+			filepath.Join(localTasksDir, aliasPath, "spell.yaml"),
+			filepath.Join(localTasksDir, aliasPath, "spell.yml"),
+			filepath.Join(localTasksDir, aliasPath+".yaml"),
+			filepath.Join(localTasksDir, aliasPath+".yml"),
+			filepath.Join(localTasksDir, aliasPath+".task"),
+		}
+
+		for _, p := range possibleAliasPaths {
+			if _, err := os.Stat(p); err == nil {
+				return p, true
+			}
+		}
+
+		return "", false
+	}
+
 	tasksDir := os.Getenv("CAST_TASKS_DIR")
 	if tasksDir == "" {
 		// User-created tasks in .cast/tasks (not deleted on checksum change)
@@ -50,17 +80,14 @@ func findFallbackTask(uses string, projectDir string) (string, bool) {
 		filepath.Join(tasksDir, uses+".task"),
 	}
 
-	homeDir, _ := os.UserHomeDir()
-	if homeDir != "" {
-		globalTasksDir := filepath.Join(homeDir, ".local", "share", "cast", "tasks")
-		possiblePaths = append(possiblePaths,
-			filepath.Join(globalTasksDir, uses, "cast.task"),
-			filepath.Join(globalTasksDir, uses, "cast.yaml"),
-			filepath.Join(globalTasksDir, uses+".yaml"),
-			filepath.Join(globalTasksDir, uses+".yml"),
-			filepath.Join(globalTasksDir, uses+".task"),
-		)
-	}
+	globalTasksDir := ResolveRemoteTasksDir(projectDir)
+	possiblePaths = append(possiblePaths,
+		filepath.Join(globalTasksDir, uses, "cast.task"),
+		filepath.Join(globalTasksDir, uses, "cast.yaml"),
+		filepath.Join(globalTasksDir, uses+".yaml"),
+		filepath.Join(globalTasksDir, uses+".yml"),
+		filepath.Join(globalTasksDir, uses+".task"),
+	)
 
 	for _, p := range possiblePaths {
 		if _, err := os.Stat(p); err == nil {
