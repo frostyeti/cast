@@ -323,6 +323,7 @@ func init() {
 	rootCmd.AddCommand(tasksRunCmd)
 	project := env.Get("CAST_PROJECT")
 	context := env.Get("CAST_CONTEXT")
+	tasksRunCmd.FParseErrWhitelist.UnknownFlags = true
 
 	tasksRunCmd.Flags().StringP("job", "j", "", "Job name to run (executes job and downstream jobs if any)")
 	tasksRunCmd.Flags().StringP("project", "p", project, "Path to the project file (castfile.yaml)")

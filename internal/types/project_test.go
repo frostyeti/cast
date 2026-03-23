@@ -104,3 +104,29 @@ workspace: false
 		t.Fatalf("expected workspace to be nil for boolean false")
 	}
 }
+
+func TestProjectSubcmdsUnmarshal(t *testing.T) {
+	yamlData := `
+name: Subcmd Project
+subcmds:
+  - dn
+  - dn:nuget
+tasks:
+  dn:test:
+    uses: shell
+    run: echo "test"
+`
+
+	var p types.Project
+	err := yaml.Unmarshal([]byte(yamlData), &p)
+	if err != nil {
+		t.Fatalf("failed to unmarshal project with subcmds: %v", err)
+	}
+
+	if len(p.Subcmds) != 2 {
+		t.Fatalf("expected 2 subcmds, got %d", len(p.Subcmds))
+	}
+	if p.Subcmds[0] != "dn" || p.Subcmds[1] != "dn:nuget" {
+		t.Fatalf("unexpected subcmds: %#v", p.Subcmds)
+	}
+}

@@ -186,6 +186,24 @@ func resetRootForTest() {
 
 func executeRootForTest(args []string, stdin string) (string, error) {
 	resetRootForTest()
+	clearDynamicSubcommands(rootCmd)
+	projectOverride := ""
+	for i := 0; i < len(args); i++ {
+		if args[i] == "-p" || args[i] == "--project" {
+			if i+1 < len(args) {
+				projectOverride = args[i+1]
+			}
+			break
+		}
+		if strings.HasPrefix(args[i], "--project=") {
+			projectOverride = strings.TrimPrefix(args[i], "--project=")
+			break
+		}
+	}
+	if projectOverride != "" {
+		_ = registerRootDynamicSubcommandsForProjectFile(projectOverride)
+	}
+
 	oldArgs := os.Args
 	os.Args = append([]string{"cast"}, args...)
 	defer func() {

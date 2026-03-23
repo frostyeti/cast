@@ -27,6 +27,22 @@
       "type": "string",
       "description": "Alias for `description`."
     },
+    "subcmds": {
+      "type": "array",
+      "description": "List of task namespace prefixes to expose as CLI subcommands (for example `dn` or `dn:nuget`).",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-zA-Z0-9_\\-:.]+$"
+      }
+    },
+    "subcommands": {
+      "type": "array",
+      "description": "Alias for `subcmds`.",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-zA-Z0-9_\\-:.]+$"
+      }
+    },
     "trusted_sources": {
       "type": "array",
       "description": "Allowlist of remote task/module sources. Each entry is matched against remote `uses` values before download.",

@@ -13,6 +13,14 @@
     "name": { "type": "string", "description": "Module display name." },
     "version": { "type": "string", "description": "Module version." },
     "description": { "type": "string", "description": "Module description." },
+    "subcmds": {
+      "type": "array",
+      "description": "Optional CLI namespace prefixes exported by module tasks.",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-zA-Z0-9_\\-:.]+$"
+      }
+    },
     "imports": { "$ref": "castfile.schema.json#/definitions/imports" },
     "env": { "$ref": "castfile.schema.json#/definitions/env" },
     "dotenv": { "$ref": "castfile.schema.json#/definitions/dotenvs" },

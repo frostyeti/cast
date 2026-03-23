@@ -93,6 +93,22 @@ func runShell(ctx TaskContext) *TaskResult {
 	case "runshell":
 		fallthrough
 	case "shell":
+		if canAppendShellArgs(run, ctx.Task.Cwd) {
+			mergedArgs := append(cmdargs.Split(run).ToArray(), splat...)
+			if len(mergedArgs) == 0 {
+				return res.Fail(errors.New("No script provided for shell task"))
+			}
+
+			exe := mergedArgs[0]
+			exeArgs := []string{}
+			if len(mergedArgs) > 1 {
+				exeArgs = mergedArgs[1:]
+			}
+
+			cmd = exec.New(exe, exeArgs...)
+			break
+		}
+
 		return runXPlatShell(run, ctx)
 	case "bash":
 		cmd = bash.ScriptContext(ctx.Context, run, splat...)
@@ -157,6 +173,81 @@ func runShell(ctx TaskContext) *TaskResult {
 	// Placeholder for running a shell command
 	// This would typically involve executing the command in the shell
 	return res.Ok()
+}
+
+func canAppendShellArgs(run, cwd string) bool {
+	trimmed := strings.TrimSpace(run)
+	if trimmed == "" {
+		return false
+	}
+
+	if strings.ContainsAny(trimmed, "\n\r") {
+		return false
+	}
+
+	if strings.ContainsAny(trimmed, "|;&") {
+		return false
+	}
+
+	if hasNamedShellVars(trimmed) {
+		return false
+	}
+
+	parts := cmdargs.Split(trimmed).ToArray()
+	if len(parts) == 0 {
+		return false
+	}
+
+	if len(parts) == 1 {
+		if strings.HasPrefix(parts[0], "./") || strings.HasPrefix(parts[0], "../") || strings.HasPrefix(parts[0], "/") {
+			candidate := parts[0]
+			if !filepath.IsAbs(candidate) && cwd != "" {
+				if resolved, err := paths.ResolvePath(cwd, candidate); err == nil {
+					candidate = resolved
+				}
+			}
+			if paths.IsFile(candidate) {
+				return true
+			}
+		}
+
+		if strings.EqualFold(parts[0], "sh") || strings.EqualFold(parts[0], "bash") || strings.EqualFold(parts[0], "pwsh") || strings.EqualFold(parts[0], "powershell") {
+			return false
+		}
+
+		lower := strings.ToLower(parts[0])
+		for _, ext := range []string{".sh", ".bash", ".zsh", ".ps1", ".py", ".rb", ".js", ".ts", ".mjs", ".cjs", ".go", ".cs"} {
+			if strings.HasSuffix(lower, ext) {
+				return true
+			}
+		}
+	}
+
+	return true
+}
+
+func hasNamedShellVars(run string) bool {
+	runes := []rune(run)
+	for i := 0; i < len(runes); i++ {
+		if runes[i] != '$' {
+			continue
+		}
+
+		if i > 0 && runes[i-1] == '\\' {
+			continue
+		}
+
+		if i+1 >= len(runes) {
+			return true
+		}
+
+		next := runes[i+1]
+		if next == '{' || next == '_' || (next >= 'a' && next <= 'z') || (next >= 'A' && next <= 'Z') {
+			return true
+		}
+	}
+
+	return false
 }
 
 func runXPlatShell(script string, ctx TaskContext) *TaskResult {

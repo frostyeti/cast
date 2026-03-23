@@ -16,6 +16,7 @@ type Project struct {
 	Name           string           `yaml:"name,omitempty" json:"name,omitempty"`
 	Version        string           `yaml:"version,omitempty" json:"version,omitempty"`
 	Desc           string           `yaml:"description,omitempty" json:"description,omitempty"`
+	Subcmds        []string         `yaml:"subcmds,omitempty" json:"subcmds,omitempty"`
 	Imports        *Imports         `yaml:"imports,omitempty" json:"imports,omitempty"`
 	Env            *Env             `yaml:"env,omitempty" json:"env,omitempty"`
 	DotEnv         *DotEnvs         `yaml:"dotenv,omitempty" json:"dotenv,omitempty"`
@@ -77,6 +78,20 @@ func (p *Project) UnmarshalYAML(node *yaml.Node) error {
 				return errors.NewYamlError(valueNode, "project description must be a scalar.")
 			}
 			p.Desc = valueNode.Value
+		case "subcmds", "subcommands":
+			if valueNode.Kind != yaml.SequenceNode {
+				return errors.NewYamlError(valueNode, "project subcmds must be a sequence.")
+			}
+			for _, item := range valueNode.Content {
+				if item.Kind != yaml.ScalarNode {
+					return errors.NewYamlError(item, "project subcmds entries must be scalar strings.")
+				}
+				v := strings.TrimSpace(item.Value)
+				if v == "" {
+					continue
+				}
+				p.Subcmds = append(p.Subcmds, v)
+			}
 
 		case "on":
 			if valueNode.Kind != yaml.MappingNode {

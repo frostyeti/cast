@@ -92,6 +92,10 @@ func runDockerTask(ctx TaskContext) *TaskResult {
 		}
 	}
 
+	if len(ctx.Task.Args) > 0 {
+		args = append(args, ctx.Task.Args...)
+	}
+
 	// Log image usage
 	trackDockerImage(image)
 

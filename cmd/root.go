@@ -27,6 +27,7 @@ var rootCmd = &cobra.Command{
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
+	registerDynamicSubcommands()
 	err := rootCmd.Execute()
 	if err != nil {
 		os.Exit(1)
@@ -37,6 +38,7 @@ func init() {
 	project := env.Get("CAST_PROJECT")
 	context := env.Get("CAST_CONTEXT")
 
+	rootCmd.FParseErrWhitelist.UnknownFlags = true
 	rootCmd.CompletionOptions.DisableDefaultCmd = true
 	rootCmd.SetHelpCommand(&cobra.Command{Hidden: true})
 
