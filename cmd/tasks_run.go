@@ -21,6 +21,18 @@ var tasksRunCmd = &cobra.Command{
 	ValidArgsFunction: provideProjectCompletion,
 	RunE: func(cmd *cobra.Command, a []string) error {
 		args := os.Args
+		invokedFromTaskNamespace := false
+		invokedViaRunShortcut := false
+		if len(args) > 1 {
+			if args[1] == "task" || args[1] == "tasks" {
+				invokedFromTaskNamespace = true
+				if len(args) > 2 && (args[2] == "run" || args[2] == "r") {
+					invokedViaRunShortcut = true
+				}
+			} else if args[1] == "run" || args[1] == "r" {
+				invokedViaRunShortcut = true
+			}
+		}
 
 		if len(args) > 0 {
 			// always will be the cli command
@@ -97,6 +109,7 @@ var tasksRunCmd = &cobra.Command{
 			targets = append(targets, n)
 		}
 
+		targetProvided := len(targets) > 0
 		if len(targets) == 0 {
 			targets = append(targets, "default")
 		}
@@ -253,12 +266,20 @@ var tasksRunCmd = &cobra.Command{
 		}
 
 		jobName, _ := flags.GetString("job")
+		if !invokedFromTaskNamespace && invokedViaRunShortcut && !targetProvided && jobName == "" {
+			if _, ok := project.Tasks.Get("run"); ok {
+				targets = []string{"run"}
+			}
+		}
+
 		if jobName != "" {
 			runParams := projects.RunJobParams{
 				JobID:         jobName,
 				Context:       cmd.Context(),
 				ContextName:   contextName,
 				Args:          remainingArgs,
+				Stdout:        cmd.OutOrStdout(),
+				Stderr:        cmd.ErrOrStderr(),
 				RunDownstream: true,
 			}
 			err = project.RunJob(runParams)
@@ -273,6 +294,8 @@ var tasksRunCmd = &cobra.Command{
 			Args:        remainingArgs,
 			Context:     cmd.Context(),
 			ContextName: contextName,
+			Stdout:      cmd.OutOrStdout(),
+			Stderr:      cmd.ErrOrStderr(),
 		}
 
 		results, err := project.RunTask(params)

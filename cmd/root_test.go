@@ -35,4 +35,12 @@ func TestRootCommand(t *testing.T) {
 	if !strings.Contains(output, "\n  task        Manage and run tasks\n") {
 		t.Errorf("expected task command in root help output, got: %s", output)
 	}
+
+	if !strings.Contains(output, "\n  job         Manage and run jobs\n") {
+		t.Errorf("expected job command in root help output, got: %s", output)
+	}
+
+	if strings.Contains(output, "\n  update      ") {
+		t.Errorf("expected root update command to be removed, got: %s", output)
+	}
 }

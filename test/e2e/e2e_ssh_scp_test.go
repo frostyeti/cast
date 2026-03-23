@@ -63,6 +63,44 @@ func TestE2E_SSHTask(t *testing.T) {
 	require.Contains(t, out, "SSH_OK")
 }
 
+func TestE2E_SSHRootSubcommand(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration test")
+	}
+	testcontainers.SkipIfProviderIsNotHealthy(t)
+
+	tmpDir := t.TempDir()
+	binPath := buildCastBinary(t, tmpDir)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	container := startSSHServer(t, ctx)
+	defer testcontainers.CleanupContainer(t, container)
+	prepareRemoteConfig(t, ctx, container, tmpDir)
+
+	host, port := containerHostPort(t, ctx, container, "2222/tcp")
+	projectDir := filepath.Join(tmpDir, "ssh-root-project")
+	require.NoError(t, os.MkdirAll(projectDir, 0o755))
+
+	castfile := "" +
+		"name: ssh-root-e2e\n" +
+		"inventory:\n" +
+		"  hosts:\n" +
+		"    sshbox:\n" +
+		"      host: " + host + "\n" +
+		"      port: " + port + "\n" +
+		"      user: cast\n" +
+		"      password: cast-pass\n"
+
+	writeFile(t, filepath.Join(projectDir, "castfile"), []byte(castfile), 0o644)
+
+	scriptPath := filepath.Join(projectDir, "remote-check.sh")
+	writeFile(t, scriptPath, []byte("echo ROOT_SSH_OK\ntest -f /config/outgoing/from-server-one.txt\n"), 0o755)
+
+	out := runCast(t, projectDir, binPath, "ssh", "sshbox", "--script", scriptPath)
+	require.Contains(t, out, "ROOT_SSH_OK")
+}
+
 func TestE2E_SCPTasks_MultiFile(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration test")
@@ -187,6 +225,55 @@ func TestE2E_SCPTasks_MultiFile(t *testing.T) {
 	_, statErr := os.Stat(filepath.Join(projectDir, "relative-downloads", "missing.txt"))
 	require.Error(t, statErr)
 	require.True(t, os.IsNotExist(statErr))
+}
+
+func TestE2E_SCPRootSubcommand(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration test")
+	}
+	testcontainers.SkipIfProviderIsNotHealthy(t)
+
+	tmpDir := t.TempDir()
+	binPath := buildCastBinary(t, tmpDir)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	container := startSSHServer(t, ctx)
+	defer testcontainers.CleanupContainer(t, container)
+	prepareRemoteConfig(t, ctx, container, tmpDir)
+
+	host, port := containerHostPort(t, ctx, container, "2222/tcp")
+	projectDir := filepath.Join(tmpDir, "scp-root-project")
+	require.NoError(t, os.MkdirAll(projectDir, 0o755))
+
+	castfile := "" +
+		"name: scp-root-e2e\n" +
+		"inventory:\n" +
+		"  hosts:\n" +
+		"    sshbox:\n" +
+		"      host: " + host + "\n" +
+		"      port: " + port + "\n" +
+		"      user: cast\n" +
+		"      password: cast-pass\n"
+
+	writeFile(t, filepath.Join(projectDir, "castfile"), []byte(castfile), 0o644)
+
+	localUpload := filepath.Join(projectDir, "root-upload.txt")
+	localDownload := filepath.Join(projectDir, "root-download.txt")
+	verifyScript := filepath.Join(projectDir, "verify-upload.sh")
+	writeFile(t, localUpload, []byte("root-scp-upload"), 0o644)
+	writeFile(t, verifyScript, []byte("test -f /config/incoming/root-upload.txt\n"), 0o755)
+
+	uploadOut := runCast(t, projectDir, binPath, "scp", "-t", "sshbox", localUpload, "/config/incoming/root-upload.txt")
+	require.Contains(t, uploadOut, "Success for sshbox")
+
+	_ = runCast(t, projectDir, binPath, "ssh", "sshbox", "--script", verifyScript)
+
+	downloadOut := runCast(t, projectDir, binPath, "scp", "--pull", "-t", "sshbox", "/config/outgoing/from-server-two.txt", localDownload)
+	require.Contains(t, downloadOut, "Success for sshbox")
+
+	content := readFile(t, localDownload)
+	require.Equal(t, "server-two", strings.TrimSpace(content))
 }
 
 func buildCastBinary(t *testing.T, tmpDir string) string {

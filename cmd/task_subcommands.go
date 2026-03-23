@@ -375,10 +375,6 @@ func writeTaskToProjectFile(projectFile, taskName string, taskDef map[string]any
 }
 
 func init() {
-	taskCmd.AddCommand(tasksRunCmd)
-	taskCmd.AddCommand(taskListCmd)
-	taskCmd.AddCommand(tasksExecCmd)
-
 	for _, c := range []*cobra.Command{taskInstallCmd, taskUpdateCmd, taskClearCacheCmd, taskAddCmd} {
 		taskCmd.AddCommand(c)
 	}

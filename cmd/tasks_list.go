@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/frostyeti/cast/internal/errors"
 	"github.com/frostyeti/cast/internal/projects"
+	"github.com/frostyeti/cast/internal/runstatus"
 	"github.com/frostyeti/go/env"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -19,6 +21,18 @@ var taskListCmd = &cobra.Command{
 	Long:    `List all available tasks defined in the project's configuration.`,
 	RunE: func(cmd *cobra.Command, a []string) error {
 		args := os.Args
+		invokedFromTaskNamespace := false
+		invokedViaListShortcut := false
+		if len(args) > 1 {
+			if args[1] == "task" || args[1] == "tasks" {
+				invokedFromTaskNamespace = true
+				if len(args) > 2 && (args[2] == "list" || args[2] == "ls") {
+					invokedViaListShortcut = true
+				}
+			} else if args[1] == "list" || args[1] == "ls" {
+				invokedViaListShortcut = true
+			}
+		}
 
 		if len(args) > 0 {
 			// always will be the cli command
@@ -86,6 +100,7 @@ var taskListCmd = &cobra.Command{
 			inRemaining = true
 		}
 
+		targetProvided := len(targets) > 0
 		if len(targets) == 0 {
 			targets = append(targets, "default")
 		}
@@ -172,6 +187,43 @@ var taskListCmd = &cobra.Command{
 			project.LoadFromYaml(workspaceProject.Path)
 		}
 
+		if !invokedFromTaskNamespace && invokedViaListShortcut && !targetProvided {
+			taskNameToRun := "list"
+			if len(os.Args) > 1 && strings.EqualFold(os.Args[1], "ls") {
+				taskNameToRun = "ls"
+			}
+
+			if task, ok := project.Schema.Tasks.Get(taskNameToRun); ok {
+				runParams := projects.RunTasksParams{
+					Targets:     []string{task.Name},
+					Args:        remainingArgs,
+					Context:     cmd.Context(),
+					ContextName: contextName,
+					Stdout:      cmd.OutOrStdout(),
+					Stderr:      cmd.ErrOrStderr(),
+				}
+
+				results, runErr := project.RunTask(runParams)
+				if runErr != nil {
+					return errors.Newf("failure with project %s: %w", projectFile, runErr)
+				}
+
+				for _, res := range results {
+					if res.Status == runstatus.Error {
+						os.Exit(1)
+					}
+				}
+
+				for _, res := range results {
+					if res.Status == runstatus.Cancelled {
+						os.Exit(2)
+					}
+				}
+
+				return nil
+			}
+		}
+
 		results, err := project.ListTasks()
 		if err != nil {
 			return errors.Newf("failure with project %s:%w", projectFile, err)
@@ -190,7 +242,7 @@ var taskListCmd = &cobra.Command{
 			if task.Desc != nil {
 				desc = *task.Desc
 			}
-			os.Stdout.WriteString(fmt.Sprintf("%-"+fmt.Sprintf("%d", max)+"s  %s\n", taskName, desc))
+			cmd.OutOrStdout().Write([]byte(fmt.Sprintf("%-"+fmt.Sprintf("%d", max)+"s  %s\n", taskName, desc)))
 		}
 
 		return nil

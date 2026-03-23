@@ -115,6 +115,34 @@ tasks:
 		}
 	})
 
+	// Test 6b: Verify env CAST_CONTEXT is respected for run shortcut
+	t.Run("run_subcommand_respects_env_context", func(t *testing.T) {
+		runCmd := exec.Command("timeout", "5", binPath, "run", "print-context")
+		runCmd.Dir = tmpDir
+		runCmd.Env = append(os.Environ(), "CAST_CONTEXT=dev")
+		output, err := runCmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("failed to run cast command: %v\n%s", err, string(output))
+		}
+		if !strings.Contains(string(output), "CAST_CONTEXT=dev") {
+			t.Errorf("expected CAST_CONTEXT=dev from environment, got: %s", string(output))
+		}
+	})
+
+	// Test 6c: Verify task run namespace respects env CAST_CONTEXT
+	t.Run("task_run_subcommand_respects_env_context", func(t *testing.T) {
+		runCmd := exec.Command("timeout", "5", binPath, "task", "run", "print-context")
+		runCmd.Dir = tmpDir
+		runCmd.Env = append(os.Environ(), "CAST_CONTEXT=dev")
+		output, err := runCmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("failed to run cast command: %v\n%s", err, string(output))
+		}
+		if !strings.Contains(string(output), "CAST_CONTEXT=dev") {
+			t.Errorf("expected CAST_CONTEXT=dev from environment for task run, got: %s", string(output))
+		}
+	})
+
 	// Test 7: Verify 'run' subcommand -c flag overrides CAST_CONTEXT env var
 	t.Run("run_subcommand_flag_overrides_env", func(t *testing.T) {
 		runCmd := exec.Command("timeout", "5", binPath, "run", "-c", "production", "print-context")
