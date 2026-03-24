@@ -57,3 +57,42 @@ tasks:
 		t.Fatalf("expected args passthrough for shell command, got: %s", string(runOut))
 	}
 }
+
+func TestE2E_SubcmdsNestedTaskHelpFlag(t *testing.T) {
+	tmpDir := t.TempDir()
+	binPath := filepath.Join(tmpDir, "cast")
+
+	buildCmd := exec.Command("go", "build", "-o", binPath, "../../main.go")
+	if output, err := buildCmd.CombinedOutput(); err != nil {
+		t.Fatalf("failed to build cast binary: %v\n%s", err, string(output))
+	}
+
+	projectFile := filepath.Join(tmpDir, "castfile")
+	content := `
+name: subcmd-nested-help-e2e
+subcmds:
+  - test
+tasks:
+  test:bun:
+    uses: shell
+    help: |
+      BUN NESTED HELP
+    run: echo SHOULD_NOT_RUN
+`
+	if err := os.WriteFile(projectFile, []byte(content), 0o644); err != nil {
+		t.Fatalf("failed to write castfile: %v", err)
+	}
+
+	helpCmd := exec.Command("timeout", "15", binPath, "-p", projectFile, "test", "bun", "--help")
+	helpCmd.Dir = tmpDir
+	helpOut, err := helpCmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("test bun --help failed: %v\n%s", err, string(helpOut))
+	}
+	if !strings.Contains(string(helpOut), "BUN NESTED HELP") {
+		t.Fatalf("expected nested task help block, got: %s", string(helpOut))
+	}
+	if strings.Contains(string(helpOut), "SHOULD_NOT_RUN") {
+		t.Fatalf("expected help mode to avoid task execution, got: %s", string(helpOut))
+	}
+}

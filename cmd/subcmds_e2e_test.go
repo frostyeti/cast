@@ -89,6 +89,37 @@ tasks:
 	}
 }
 
+func TestDynamicSubcmds_NestedTaskHelpFlag(t *testing.T) {
+	tmpDir := t.TempDir()
+	projectFile := filepath.Join(tmpDir, "castfile")
+
+	content := `
+name: nested-subcmd-help-test
+subcmds:
+  - test
+tasks:
+  test:bun:
+    uses: shell
+    help: |
+      BUN HELP TEXT
+    run: echo SHOULD_NOT_RUN
+`
+	if err := os.WriteFile(projectFile, []byte(content), 0o644); err != nil {
+		t.Fatalf("write castfile: %v", err)
+	}
+
+	out, err := executeRootForTest([]string{"-p", projectFile, "test", "bun", "--help"}, "")
+	if err != nil {
+		t.Fatalf("test bun --help failed: %v", err)
+	}
+	if !strings.Contains(out, "BUN HELP TEXT") {
+		t.Fatalf("expected nested task help output, got: %s", out)
+	}
+	if strings.Contains(out, "SHOULD_NOT_RUN") {
+		t.Fatalf("expected help mode to avoid task execution, got: %s", out)
+	}
+}
+
 func TestDirectTaskRunArgPassthrough(t *testing.T) {
 	tmpDir := t.TempDir()
 	projectFile := filepath.Join(tmpDir, "castfile")

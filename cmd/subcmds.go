@@ -361,7 +361,15 @@ func runTaskHelpBlockOrTask(cmd *cobra.Command, projectFile, taskID string, args
 		_, _ = fmt.Fprintln(cmd.OutOrStdout(), helpText)
 		return nil
 	}
-	return runTaskByID(cmd, projectFile, taskID, args)
+
+	descText := leafTaskShort(projectFile, taskID)
+	if descText != "" {
+		_, _ = fmt.Fprintln(cmd.OutOrStdout(), descText)
+		return nil
+	}
+
+	_, _ = fmt.Fprintln(cmd.OutOrStdout(), taskID)
+	return nil
 }
 
 func runTaskByID(cmd *cobra.Command, projectFile, taskID string, taskArgs []string) error {
