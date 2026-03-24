@@ -39,7 +39,8 @@ func init() {
 	context := env.Get("CAST_CONTEXT")
 
 	rootCmd.FParseErrWhitelist.UnknownFlags = true
-	rootCmd.CompletionOptions.DisableDefaultCmd = true
+	rootCmd.CompletionOptions.DisableDefaultCmd = false
+	rootCmd.CompletionOptions.HiddenDefaultCmd = true
 	rootCmd.SetHelpCommand(&cobra.Command{Hidden: true})
 
 	rootCmd.Flags().StringP("project", "p", project, "Path to the project file (castfile.yaml)")

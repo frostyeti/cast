@@ -28,6 +28,17 @@ func TestRootCommand(t *testing.T) {
 		t.Errorf("expected completion command to be hidden from help output, got: %s", output)
 	}
 
+	compBuf := new(bytes.Buffer)
+	cmd.SetOut(compBuf)
+	cmd.SetErr(compBuf)
+	cmd.SetArgs([]string{"completion", "--help"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("expected completion command to run while hidden, got %v", err)
+	}
+	if !strings.Contains(strings.ToLower(compBuf.String()), "autocompletion") {
+		t.Errorf("expected completion help output, got: %s", compBuf.String())
+	}
+
 	if strings.Contains(output, "\n  help        Help about any command\n") {
 		t.Errorf("expected help subcommand to be hidden from help output, got: %s", output)
 	}
