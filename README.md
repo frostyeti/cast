@@ -1,6 +1,6 @@
 # Cast
 
-**Cast** is a powerful task runner and automation tool designed to manage multi-step workflows, scripts, remote execution, and project automation. It supports multiple runners natively, allowing you to seamlessly integrate tasks written in Bash, Deno, Node.js, Python, PowerShell, Go, and more.
+Cast is a task runner and automation tool for local scripts, remote execution, and reusable remote task packages.
 
 ## Installation
 
@@ -16,483 +16,326 @@ curl -sL https://raw.githubusercontent.com/frostyeti/cast/master/eng/scripts/ins
 irm https://raw.githubusercontent.com/frostyeti/cast/master/eng/scripts/install.ps1 | iex
 ```
 
-> **Note:** By default, Cast installs to `~/.local/bin` (Linux/Mac) or `~/AppData/Local/Programs/bin` (Windows). Override this by setting the `CAST_INSTALL_DIR` environment variable before running the script.
+By default, Cast installs to `~/.local/bin` on Linux/macOS and `~/AppData/Local/Programs/bin` on Windows.
 
----
+## Shell completion
 
-## Autocompletion
+The completion command is available and hidden from root help. You can still run:
 
-Cast supports shell autocompletion for tasks, jobs, and workspace projects!
-
-To enable autocompletion in your shell:
-
-### Bash
 ```bash
-# Enable for the current session
+cast completion bash
+cast completion zsh
+cast completion fish
+cast completion powershell
+```
+
+Example (bash):
+
+```bash
 source <(cast completion bash)
-
-# Make permanent (Linux)
 echo 'source <(cast completion bash)' >> ~/.bashrc
-
-# Make permanent (macOS)
-echo 'source <(cast completion bash)' >> ~/.bash_profile
 ```
 
-### Zsh
-```zsh
-# Enable for the current session
-source <(cast completion zsh)
+## Quick start
 
-# Make permanent
-echo 'source <(cast completion zsh)' >> ~/.zshrc
-```
-
-### Fish
-```fish
-# Enable for the current session
-cast completion fish | source
-
-# Make permanent
-cast completion fish > ~/.config/fish/completions/cast.fish
-```
-
-### PowerShell
-```powershell
-# Enable for the current session
-cast completion powershell | Out-String | Invoke-Expression
-
-# Make permanent: Add the following line to your PowerShell profile (find it via $PROFILE)
-Invoke-Expression (&cast completion powershell)
-```
-
----
-
-## Getting Started
-
-Cast uses a `castfile.yaml` (or `cast.yaml`) to define tasks in your repository. Create one in your project root:
+Create a `castfile`:
 
 ```yaml
-name: My Awesome Project
-version: 1.0.0
-
+name: demo
 tasks:
   hello:
-    desc: Says hello
-    uses: bash
-    run: echo "Hello from Cast!"
+    uses: shell
+    run: echo "hello"
 ```
 
-List tasks with `cast list` and run them with `cast run hello`.
+Run:
 
----
+```bash
+cast list
+cast hello
+cast run hello
+```
 
-## Task Configuration
+## Task execution model
 
-### Dependencies (`needs`)
+### Context suffix routing
 
-Chain tasks together using the `needs` array to guarantee tasks execute in order:
+Cast resolves a context-specific task first, then falls back to the base task.
+
+- `cast -c prod deploy` tries `deploy:prod`, then `deploy`
+- `cast run deploy -c prod` behaves the same
+
+### Hooks (`before` and `after`)
+
+Hooks are resolved as `task-id:<hook-suffix>`. For example:
 
 ```yaml
 tasks:
-  setup:
-    run: echo "Setting up..."
-  build:
-    needs: [setup]
-    run: echo "Building..."
-```
-
-### Environment Variables & Secrets
-
-Environment variables can be defined globally or on specific tasks. Cast supports **variable interpolation** and **command substitution** (e.g., retrieving secrets dynamically).
-
-```yaml
-env:
-  # Simple variable
-  PROJECT_ENV: development
-  # Command substitution (e.g., fetch a secret)
-  DB_PASSWORD: $(aws secretsmanager get-secret-value --secret-id db-pass --query SecretString --output text)
-  # Variable interpolation
-  API_URL: "https://api.${PROJECT_ENV}.example.com"
-
-tasks:
-  deploy:
-    env:
-      TASK_SPECIFIC_VAR: "Hello"
-    run: echo "Deploying with $DB_PASSWORD to $API_URL"
-```
-
-### Dotenv Files
-
-You can load environment variables from `.env` files. If a file might not exist, prefix it with `?` to gracefully ignore missing files instead of throwing an error.
-
-```yaml
-dotenv:
-  - path: .env
-  - path: ?.env.local  # Optional file
-```
-
-You can also specify `dotenv` configs directly on a task:
-
-```yaml
-tasks:
-  start:
-    dotenv: ["?.env.dev"]
-    run: node server.js
-```
-
-### CWD and Conditionals (`if`)
-
-Control where a task runs using `cwd`. Control *whether* a task runs using `if` statements. Cast evaluates `if` statements using the [expr library](https://github.com/antonmedv/expr).
-
-```yaml
-tasks:
-  publish:
-    cwd: ./build
-    if: env.BRANCH == 'main'
-    run: npm publish
-```
-
----
-
-## Extends (Inheritance)
-
-Reduce duplication by using the `extends` keyword to inherit properties from another task or job. The child task or job will deeply merge its properties with the base, allowing you to easily override specific settings like `env`, `run`, `cwd`, and `steps`.
-
-### Task Extends
-
-```yaml
-tasks:
-  base-build:
-    desc: "Base build configuration"
-    cwd: ./src
-    env:
-      BUILD_ENV: "production"
-    run: npm run build
-
-  build-dev:
-    extends: base-build
-    desc: "Build for development"
-    env:
-      BUILD_ENV: "development"
-```
-
-### Job Extends
-
-```yaml
-jobs:
-  base-deploy:
-    desc: "Base deployment job"
-    timeout: "5m"
-    env:
-      REGION: "us-east-1"
-    steps:
-      - run: deploy
-
-  deploy-eu:
-    extends: base-deploy
-    desc: "Deploy to EU region"
-    env:
-      REGION: "eu-west-1"
-```
-
----
-
-## Hooks
-
-Wrap tasks with `before` and `after` tasks using hooks. This is highly useful for setup and teardown processes!
-
-```yaml
-tasks:
-  pre-flight:
-    run: echo "Preparing..."
-  post-flight:
-    run: echo "Cleaning up..."
-  
   deploy:
     hooks:
-      before: [pre-flight]
-      after: [post-flight]
-    run: echo "Deploying..."
+      before: [before]
+      after: [after]
+    uses: shell
+    run: echo deploy
+
+  deploy:before:
+    uses: shell
+    run: echo pre
+
+  deploy:after:
+    uses: shell
+    run: echo post
 ```
 
----
+Execution order is: dependencies -> before hooks -> main task -> after hooks.
 
-## Runners and Workloads
+### `with` inputs
 
-Cast determines how to execute a script using the `uses` property.
+`with` is the input/parameter map for handlers and remote tasks.
 
-### Polyglot Scripts & Relative Paths
+- `cast` tasks use `with.file`, `with.dir`, `with.task`, `with.job`
+- `docker` tasks use `with.image`, `with.command`, `with.args`, `with.volumes`
+- `ssh`/`scp` often use `with.script`, `with.files`, `with.max-parallel`
+- remote `cast.task` inputs map into `INPUT_*` environment variables
 
-You can use standard language runners (`bash`, `node`, `deno`, `python`, `pwsh`), or point to a local script directly:
+## `uses: shell` in detail
+
+`uses: shell` is the most lightweight runner. It does not require language-specific wrappers and can run basic commands directly.
+
+- supports single commands and script-style multi-line run blocks
+- supports operators in script mode (`&&`, `||`, `|`, `;`)
+- supports `template: gotmpl` for rendering `run` before execution
+- can read script content via `with.script`
+
+Example:
 
 ```yaml
 tasks:
-  clean:
-    uses: python
+  build:
+    uses: shell
+    template: gotmpl
     run: |
-      import os
-      print("Cleaning up...")
-      
-  script-task:
-    uses: ./scripts/custom-runner.sh
-    run: echo "Passed to custom runner"
+      echo "building {{ .env.APP_ENV }}"
+      npm run build && npm run test
 ```
 
-### Docker Image Tasks
+### CLI arg passthrough
 
-Easily run workloads inside a Docker container:
+Trailing CLI args are passed to tasks as task args.
+
+- `cast test:bun -- --clean ./tmp`
+- dynamic subcommands also pass args, for example `cast test bun --clean ./tmp`
+
+For simple `shell`/`docker` invocations, those trailing args are appended to command args.
+
+## Help behavior (`--help`)
+
+For task execution paths, `--help` can show task-level docs.
+
+- direct task: `cast test:bun --help`
+- dynamic subcommand leaf: `cast test bun --help`
+- subcommand root help task pattern: `cast mysql --help` can use `mysql:help`
+
+Behavior:
+
+1. print task `help` when present
+2. otherwise print task `desc`
+3. otherwise print task id/name fallback
+
+## Subcommands (`subcmds`)
+
+You can expose task namespaces as CLI subcommands:
+
+```yaml
+subcmds:
+  - test
+  - mysql
+
+tasks:
+  test:bun:
+    help: run bun tests
+    uses: shell
+    run: bun test
+```
+
+Usage:
+
+- `cast test bun`
+- `cast test bun --help`
+- `cast mysql --help` (uses `mysql:help` if defined)
+
+Alias key `subcommands` is also accepted.
+
+## Remote tasks (`uses:` remote refs)
+
+Cast supports remote task sources via `uses`. Common prefixes:
+
+- `gh:` or `github:` for GitHub repos
+- `gl:` or `gitlab:` for GitLab repos
+- `azdo:` for Azure DevOps repos
+- `cast:`, `task:`, `spell:` for the default spells repo namespace
+- direct hosts: `github.com/org/repo@...`, `gitlab.com/group/repo@...`, `dev.azure.com/...`
+- URLs and SSH clone refs: `https://...git@ref`, `ssh://...`, `git@host:org/repo.git@ref`
+
+### Trust model
+
+Set `trusted_sources` to allow remote `uses` patterns. If non-empty, remote refs must match.
+
+```yaml
+trusted_sources:
+  - gh:your-org/*
+  - cast:*
+  - github.com/frostyeti/*
+```
+
+### Versioning and refs
+
+Remote refs support:
+
+- exact tags: `@v1.2.3`
+- semver family resolution: `@v1` (resolves to best matching tag)
+- prerelease exact matches: `@v2.3.1-beta.1`
+- branch names: `@main`, `@master`, `@feature/x`
+- commit SHAs: `@abc1234` (7-40 hex)
+- `@head` / `@HEAD`
+
+### Stable vs volatile cache
+
+- immutable refs (exact tags/commits) use stable cache
+- branch/head-like refs use volatile cache
+
+Use:
+
+- `cast task install` to prefetch remote tasks
+- `cast task update` to refresh branch/head refs
+- `cast task clear-cache` to clear local volatile cache
+- `cast task clear-cache --global` to clear global stable cache
+
+### Subpaths
+
+Remote refs can include a subpath after the version, for example:
 
 ```yaml
 tasks:
-  test-in-docker:
-    uses: docker://golang:1.21
-    run: go test ./...
+  lint:
+    uses: gh:org/automation@v1.2.3/tasks/lint
 ```
 
-### Cross-Project Tasks
+Cast performs sparse checkout for subpath-targeted refs and prevents traversal segments like `..`.
 
-You can trigger a task or job inside another completely separate `castfile` using the `cast` handler. This is useful for building monorepos or dispatching sub-projects where you don't necessarily want to use the unified Workspace feature.
+### SSH clone examples
 
 ```yaml
 tasks:
-  build-frontend:
-    uses: cast
-    with:
-      dir: ./frontend  # Path to the directory containing a castfile
-      task: build      # The task to run in that project
-      
-  deploy-backend:
-    uses: cast
-    with:
-      file: ./backend/castfile.production.yaml
-      job: deploy      # You can also trigger a full job
+  private-task:
+    uses: git@github.com:your-org/private-tasks.git@v1.2.0/path/to/task
+
+  private-task-ssh-url:
+    uses: ssh://git@github.com/your-org/private-tasks.git@main/tasks/build
 ```
 
----
+## Environment and dotenv cascading
 
-## Advanced Task Types
+Cast builds task environment in layers:
 
-### Template Task
+1. process environment
+2. imported module `paths`, project `paths`
+3. imported module `dotenv`, project `dotenv` (context-aware)
+4. imported module `env`, project `env`
+5. task `dotenv`
+6. task `env`
 
-Render text dynamically using the `template` property:
+Later layers override earlier values.
+
+### `paths` cascade
+
+Top-level `paths` entries are applied to `PATH` for task execution (prepend by default, optional append).
+
+Cast also prepends `./bin` and `./node_modules/.bin` for convenience.
+
+### Runtime env propagation with `CAST_ENV` and `CAST_PATH`
+
+Cast creates/uses files for cross-task propagation:
+
+- `CAST_ENV`: write `KEY=value` lines to inject env vars into subsequent tasks
+- `CAST_PATH`: write path lines to prepend directories to PATH for subsequent tasks
+- `CAST_OUTPUTS`: write outputs for task result sharing
+
+Example:
 
 ```yaml
 tasks:
-  gen-config:
-    uses: template
-    template: |
-      Server={{ env.SERVER_NAME }}
-      Port={{ env.PORT }}
+  bootstrap-secrets:
+    uses: shell
+    run: |
+      echo "API_TOKEN=$(gh auth token)" >> "$CAST_ENV"
+
+  setup-tools:
+    uses: shell
+    run: |
+      echo "./tools/bin" >> "$CAST_PATH"
+
+  use-both:
+    needs: [bootstrap-secrets, setup-tools]
+    uses: shell
+    run: |
+      echo "$API_TOKEN"
+      my-tool --version
 ```
 
-### SSH & SCP Tasks
+This pattern is useful for dynamic secret loading and late env overrides without committing secret values.
 
-Run shell commands on remote hosts using Cast's built-in SSH capabilities. Cast supports **Go text templates** inside the `run` block for SSH tasks, allowing you to interpolate variables dynamically into the templated script before it is executed remotely.
+## Templating support
+
+- `shell` tasks support `template: gotmpl`
+- `ssh` tasks support `template: gotmpl`
+
+You can interpolate environment values and host data where supported.
+
+## SSH and SCP task targeting and concurrency
+
+`ssh` and `scp` tasks can target multiple hosts by explicit host ids or by tag selectors in `hosts`.
+
+- multi-target operations run concurrently via worker pools
+- default concurrency is bounded (override with `with.max-parallel` or env vars)
+
+Example:
 
 ```yaml
-inventories:
-  - ./production.yaml
-
 tasks:
-  deploy:
-    hosts: [web-server]
+  rollout:
     uses: ssh
-    run: |
-      # This is rendered locally before executing on the remote host!
-      echo "Deploying to {{ .Host.Host }} as {{ .Host.User }}"
-      cd /var/www/app
-      docker-compose up -d
-
-  copy-config:
-    uses: scp
-    hosts: [web-server]
+    hosts: [web, api, prod] # names or tags
     with:
-      src: ./config.yml
-      dest: /etc/app/config.yml
+      max-parallel: "10"
+    run: ./deploy.sh
+
+  sync-assets:
+    uses: scp
+    hosts: [web]
+    with:
+      max-parallel: "8"
+      files:
+        - ./dist:/srv/app/dist
 ```
 
-### Remote Tasks via YAML Imports
-
-You can import tasks, pipelines, or infrastructure configurations from remote Git repositories directly:
-
-```yaml
-imports:
-  - from: github.com/frostyeti/shared-tasks
-    ns: core
-
-tasks:
-  deploy:
-    needs: [core:build]
-    run: echo "Deploying..."
-```
-
----
-
-## Contexts
-
-You can use contexts to conditionally load environment files or target entirely different tasks based on the environment (e.g., `prod`, `dev`).
-
-```yaml
-dotenv:
-  - path: .env
-  - path: .env.production
-    contexts: [prod]
-
-tasks:
-  "deploy:prod":
-    run: echo "Production Deploy"
-  
-  "deploy:dev":
-    run: echo "Dev Deploy"
-```
-
-Run with context:
-```bash
-cast run deploy -c prod
-```
-*(Cast automatically routes `deploy` to `deploy:prod` based on the context!)*
-
----
-
-## Workspaces (Nested Projects)
-
-For monorepos or projects with nested components (like a `docker-compose` setup), you can organize sub-projects using Workspaces.
-
-```yaml
-workspace:
-  include:
-    - "services/**"
-```
-
-Run a task specifically for a child project using the `@` shortcut without needing to `cd` into the directory:
+## CLI commands you will likely use
 
 ```bash
-cast @backend build
-cast @frontend deploy -c prod
+cast list
+cast <task>
+cast run <task>
+cast run --job <job>
+cast task install
+cast task update
+cast task clear-cache
+cast ssh <host>
+cast scp <src> <dest> --targets host1,host2
 ```
 
----
+## More docs
 
-## Jobs
-
-Jobs allow you to group tasks into complex CI/CD-style pipelines and execute them alongside their downstream dependents. 
-
-```yaml
-jobs:
-  build-all:
-    steps:
-      - run: build
-  
-  deploy-all:
-    needs: [build-all]
-    steps:
-      - run: deploy
-```
-
-Execute a job and all its downstream jobs:
-```bash
-cast run --job build-all
-```
-
----
-
-## Server Mode & Webhooks
-
-Cast can run as a long-lived server to execute background tasks on a cron schedule or respond to webhooks.
-
-Start the server:
-```bash
-cast serve
-```
-
-### Webhooks
-
-You can configure webhooks to trigger tasks or jobs remotely (e.g. from GitHub Actions).
-
-```yaml
-on:
-  webhooks:
-    deploy-hook:
-      job: deploy-all
-      secret: "my-github-secret-key"
-
-jobs:
-  deploy-all:
-    steps:
-      - run: echo "Deploying!"
-```
-
-With the server running, you can hit the webhook endpoint:
-```bash
-curl -X POST http://localhost:8080/api/webhooks/deploy-hook \
-  -H "X-Hub-Signature-256: sha256=..." \
-  -d '{"branch": "main"}'
-```
-
-Query parameters and JSON payload properties are automatically injected into the task environment as `WEBHOOK_QUERY_*` and `WEBHOOK_PAYLOAD_*`.
-
----
-
-## Exec Command
-
-The `exec` command allows you to run ad-hoc shell commands wrapped in your `castfile` environment. This is exceptionally useful for dynamically pulling secrets or variables defined in your project and using them on the fly.
-
-```bash
-# Injects castfile environments, including command-substituted secrets!
-cast exec -- psql -U $DB_USER -h $DB_HOST
-```
-
----
-
-## Environment Variables Reference
-
-Cast uses several environment variables to control its behavior and share state between tasks.
-
-### CLI Configuration
-
-| Variable | Description |
-|----------|-------------|
-| `CAST_PROJECT` | Default project file path (used by `-p` flag) |
-| `CAST_CONTEXT` | Default context name (used by `-c` flag) |
-
-### Task Runtime (available within tasks)
-
-| Variable | Description |
-|----------|-------------|
-| `CAST_ENV` | Path to a temp file. Write `KEY=value` here to export env vars to subsequent tasks. |
-| `CAST_PATH` | Path to a temp file. Write a directory path here to prepend it to the `$PATH` of subsequent tasks. |
-| `CAST_OUTPUTS` | Path to a temp file for sharing outputs between tasks. |
-
-#### Using CAST_ENV for Task Communication
-```yaml
-tasks:
-  load-env:
-    run: echo "API_KEY=secret_123" >> $CAST_ENV
-
-  get-env:
-    needs: [load-env]
-    run: echo "API_KEY from env: $API_KEY"
-```
-
-#### Using CAST_PATH for PATH Updates
-```yaml
-tasks:
-  setup-path:
-    run: echo "/custom/bin" >> $CAST_PATH
-
-  use-custom-tool:
-    needs: [setup-path]
-    run: custom-tool --version
-```
-
-### Imported Module Variables
-When tasks are executed from imported remote modules, Cast injects the following variables so the task knows where it's running:
-
-| Variable | Description |
-|----------|-------------|
-| `CAST_FILE` | Path to the module's castfile |
-| `CAST_DIR` | Directory containing the module's castfile |
-| `CAST_PARENT_FILE` | Path to the parent project's castfile |
-| `CAST_PARENT_DIR` | Directory containing the parent project's castfile |
-| `CAST_MODULE_ID` | Module's unique identifier |
-| `CAST_MODULE_NAME` | Module's name |
+- `docs/site/src/content/docs/reference/castfile.md`
+- `docs/site/src/content/docs/reference/task.md`
+- `docs/site/src/content/docs/reference/cast.md`
+- `docs/site/src/content/docs/guides/ssh-and-scp.md`

@@ -403,3 +403,154 @@ tasks:
 - Keep ids lowercase and hyphenated for predictable lookup.
 - Remote task sources should be allowlisted with `trusted_sources`.
 - `dotenv` entries with `?` are optional and skipped when missing.
+
+## Task help and `--help`
+
+Cast supports task-level help output in direct and dynamic subcommand flows.
+
+- `cast test:bun --help` prints task `help`, then falls back to `desc`.
+- `cast test bun --help` behaves the same when `subcmds` is configured.
+- Namespace subcommands can expose a `help` task (for example `mysql:help`) for `cast mysql --help`.
+
+```yaml
+tasks:
+  test:bun:
+    help: |
+      Runs bun tests with the project defaults.
+    desc: Run bun tests
+    uses: shell
+    run: bun test
+```
+
+## Context suffix resolution
+
+Task lookup is context-aware.
+
+- `cast -c prod deploy` tries `deploy:prod`, then `deploy`.
+- `cast run -c prod deploy` follows the same rule.
+
+Use this pattern to keep one logical task name while splitting environment behavior by suffix.
+
+## Hook resolution and order
+
+Hooks resolve by suffix against the task id:
+
+- `before: [before]` resolves to `<task-id>:before`
+- `after: [after]` resolves to `<task-id>:after`
+
+Execution order is:
+
+1. dependencies (`needs`)
+2. before hooks
+3. main task
+4. after hooks
+
+This allows consistent setup/teardown around both base and context-suffixed tasks.
+
+## `with` as task inputs
+
+`with` is the parameter map for task handlers and remote tasks.
+
+- Remote `cast.task` inputs map to `INPUT_*` environment variables.
+- `docker` reads image/command/args/volumes from `with`.
+- `ssh` and `scp` use `with` keys like `script`, `files`, and `max-parallel`.
+- `cast` (cross-project) uses `with.file`, `with.dir`, `with.task`, `with.job`.
+
+Keep keys stable so callers can pass predictable values.
+
+## Argument passthrough
+
+Trailing CLI args are passed into task execution. For shell and docker style tasks, trailing args are appended to the effective command args in supported paths.
+
+```bash
+cast test:bun -- --clean ./tmp
+cast test bun --clean ./tmp
+cast run test:bun --clean ./tmp
+```
+
+## `uses: shell` details
+
+`uses: shell` is the minimal built-in command runner.
+
+- no language-specific wrapper required
+- supports simple command execution and script-like multi-line blocks
+- supports command operators in script mode (`&&`, `||`, `|`, `;`)
+- supports `with.script` for loading script content from files
+- supports `template: gotmpl` to render `run` before execution
+
+```yaml
+tasks:
+  verify:
+    uses: shell
+    template: gotmpl
+    run: |
+      echo "context={{ .env.CAST_CONTEXT }}"
+      npm run lint && npm run test
+```
+
+## Remote `uses` deep dive
+
+Supported remote styles include:
+
+- `gh:` / `github:`
+- `gl:` / `gitlab:`
+- `azdo:`
+- `cast:` / `task:` / `spell:` (spells namespace)
+- hosted forms like `github.com/org/repo@...`
+- direct SSH/URL forms such as `git@host:org/repo.git@ref/subpath` and `ssh://...@ref`
+
+Version and ref behavior:
+
+- exact tags (`@v1.2.3`)
+- semver family resolution (`@v1`, `@v1.2`)
+- prerelease exact (`@v2.3.1-beta.1`)
+- branch refs (`@main`, `@feature/x`)
+- commit SHA refs (`@abc1234`)
+- `@head` / `@HEAD`
+
+Subpaths are supported after the ref (`@v1.2.3/tasks/lint`). Cast validates subpaths and uses sparse checkout for subpath-targeted fetches.
+
+Use `trusted_sources` in your castfile to allowlist remote refs.
+
+## Environment, dotenv, and paths cascade
+
+Environment is assembled in layers and merged over time:
+
+1. process env
+2. imported/project `paths`
+3. imported/project `dotenv` (context-aware)
+4. imported/project `env`
+5. task `dotenv`
+6. task `env`
+
+Top-level `paths` modify PATH for all tasks, and Cast prepends `./bin` and `./node_modules/.bin`.
+
+## Runtime chaining with `CAST_ENV` and `CAST_PATH`
+
+Tasks can update later tasks by writing to runtime files:
+
+- write `KEY=value` lines to `$CAST_ENV`
+- write directory lines to `$CAST_PATH`
+
+Values written by one successful task are loaded into the shared project env/PATH for following tasks. This is useful for dynamic secrets and late overrides.
+
+```yaml
+tasks:
+  load-secrets:
+    uses: shell
+    run: echo "API_TOKEN=$(gh auth token)" >> "$CAST_ENV"
+
+  add-tools:
+    uses: shell
+    run: echo "./tools/bin" >> "$CAST_PATH"
+```
+
+## SSH and SCP fan-out
+
+`ssh` and `scp` tasks can target multiple hosts by explicit host name or by matching host tags in `hosts`.
+
+- tasks fan out across targets using parallel workers
+- control concurrency with `with.max-parallel`
+- `ssh` supports `template: gotmpl` for script rendering
+
+This model is designed for asynchronous multi-host operations with bounded parallelism.
