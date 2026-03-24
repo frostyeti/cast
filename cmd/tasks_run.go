@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -289,6 +290,23 @@ var tasksRunCmd = &cobra.Command{
 			return nil
 		}
 
+		if shouldShowTaskHelp(targets, remainingArgs) {
+			target := targets[0]
+			task, ok := lookupTaskForContext(project, target, contextName)
+			if ok {
+				if task.Help != nil && strings.TrimSpace(*task.Help) != "" {
+					_, _ = fmt.Fprintln(cmd.OutOrStdout(), strings.TrimSpace(*task.Help))
+					return nil
+				}
+				if task.Desc != nil && strings.TrimSpace(*task.Desc) != "" {
+					_, _ = fmt.Fprintln(cmd.OutOrStdout(), strings.TrimSpace(*task.Desc))
+					return nil
+				}
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), target)
+				return nil
+			}
+		}
+
 		params := projects.RunTasksParams{
 			Targets:     targets,
 			Args:        remainingArgs,
@@ -330,4 +348,42 @@ func init() {
 	tasksRunCmd.Flags().StringP("context", "c", context, "Context name to use from the project")
 	tasksRunCmd.Flags().StringArrayP("dotenv", "E", []string{}, "List of dotenv files to load")
 	tasksRunCmd.Flags().StringToStringP("env", "e", map[string]string{}, "List of environment variables to set")
+}
+
+func shouldShowTaskHelp(targets, args []string) bool {
+	if len(targets) != 1 {
+		return false
+	}
+
+	for _, a := range args {
+		if a == "--help" || a == "-h" {
+			return true
+		}
+	}
+
+	return false
+}
+
+func lookupTaskForContext(project *projects.Project, target, contextName string) (task projectsTaskView, ok bool) {
+	if project == nil {
+		return projectsTaskView{}, false
+	}
+
+	if contextName != "" {
+		if t, found := project.Tasks.Get(target + ":" + contextName); found {
+			return projectsTaskView{Help: t.Help, Desc: t.Desc}, true
+		}
+	}
+
+	t, found := project.Tasks.Get(target)
+	if !found {
+		return projectsTaskView{}, false
+	}
+
+	return projectsTaskView{Help: t.Help, Desc: t.Desc}, true
+}
+
+type projectsTaskView struct {
+	Help *string
+	Desc *string
 }
