@@ -7,8 +7,9 @@ import (
 
 // ProjectConfig holds root-level parser behavior for a project.
 type ProjectConfig struct {
-	Context      *string `yaml:"context,omitempty" json:"context,omitempty"`
-	Substitution *bool   `yaml:"substitution,omitempty" json:"substitution,omitempty"`
+	Context      *string        `yaml:"context,omitempty" json:"context,omitempty"`
+	Substitution *bool          `yaml:"substitution,omitempty" json:"substitution,omitempty"`
+	Values       map[string]any `yaml:"-" json:"values,omitempty"`
 }
 
 func (pc *ProjectConfig) UnmarshalYAML(node *yaml.Node) error {
@@ -16,11 +17,18 @@ func (pc *ProjectConfig) UnmarshalYAML(node *yaml.Node) error {
 		pc = &ProjectConfig{}
 	}
 
+	if node.Kind == yaml.DocumentNode && len(node.Content) > 0 {
+		node = node.Content[0]
+	}
+
 	sub := true
 	ctx := "default"
 
 	pc.Substitution = &sub
 	pc.Context = &ctx
+	if pc.Values == nil {
+		pc.Values = map[string]any{}
+	}
 
 	if node.Kind != yaml.MappingNode {
 		return errors.NewYamlError(node, "expected yaml mapping for ProjectConfig")
@@ -40,13 +48,17 @@ func (pc *ProjectConfig) UnmarshalYAML(node *yaml.Node) error {
 			if valueNode.Kind != yaml.ScalarNode {
 				return errors.NewYamlError(valueNode, "expected yaml scalar for 'substitution' field")
 			}
-			substitutionValue := false
-			if valueNode.Value == "true" || valueNode.Value == "yes" {
-				substitutionValue = true
+			substitutionValue := true
+			if err := valueNode.Decode(&substitutionValue); err != nil {
+				return errors.NewYamlError(valueNode, "expected yaml boolean for 'substitution' field")
 			}
 			pc.Substitution = &substitutionValue
 		default:
-			return errors.NewYamlError(keyNode, "unknown field in ProjectConfig: "+keyNode.Value)
+			var value any
+			if err := valueNode.Decode(&value); err != nil {
+				return errors.NewYamlError(valueNode, "failed to decode project config value for '"+keyNode.Value+"'")
+			}
+			pc.Values[keyNode.Value] = value
 		}
 	}
 

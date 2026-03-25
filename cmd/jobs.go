@@ -5,7 +5,6 @@ import (
 
 	"github.com/frostyeti/cast/internal/errors"
 	"github.com/frostyeti/cast/internal/projects"
-	"github.com/frostyeti/go/env"
 	"github.com/spf13/cobra"
 )
 
@@ -78,16 +77,7 @@ func loadProjectForJobCommand(cmd *cobra.Command) (*projects.Project, string, er
 		return nil, "", err
 	}
 
-	contextName, _ := cmd.Flags().GetString("context")
-	if contextName == "" {
-		contextName, _ = cmd.InheritedFlags().GetString("context")
-	}
-	if contextName == "" {
-		contextName = env.Get("CAST_CONTEXT")
-	}
-	if contextName == "" {
-		contextName = "default"
-	}
+	contextName := resolveDefaultContextName(cmd, projectFile)
 
 	project := &projects.Project{}
 	if err := project.LoadFromYaml(projectFile); err != nil {

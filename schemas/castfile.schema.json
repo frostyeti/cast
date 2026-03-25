@@ -82,7 +82,7 @@
           "description": "Enable or disable environment substitution while evaluating task values."
         }
       },
-      "additionalProperties": false
+      "additionalProperties": true
     },
     "project-defaults": {
       "type": "object",

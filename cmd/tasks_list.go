@@ -114,10 +114,6 @@ var taskListCmd = &cobra.Command{
 		projectFile, _ = flags.GetString("project")
 		contextName, _ = flags.GetString("context")
 
-		if contextName == "" {
-			contextName = "default"
-		}
-
 		projectName := ""
 
 		if projectFile != "" {
@@ -185,6 +181,10 @@ var taskListCmd = &cobra.Command{
 			project = workspaceProject.Project
 			projectFile = workspaceProject.Path
 			project.LoadFromYaml(workspaceProject.Path)
+		}
+
+		if strings.TrimSpace(contextName) == "" {
+			contextName = resolveDefaultContextName(cmd, projectFile)
 		}
 
 		if !invokedFromTaskNamespace && invokedViaListShortcut && !targetProvided {

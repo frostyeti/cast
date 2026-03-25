@@ -105,10 +105,6 @@ var tasksExecCmd = &cobra.Command{
 		envs, _ := flags.GetStringToString("env")
 		//dotenvs, _ := flags.GetStringArray("dotenv")
 
-		if contextName == "" {
-			contextName = "default"
-		}
-
 		projectName := ""
 
 		if projectFile != "" {
@@ -179,6 +175,10 @@ var tasksExecCmd = &cobra.Command{
 			if err != nil {
 				return errors.Newf("failed to load project file %s: %w", workspaceProject.Path, err)
 			}
+		}
+
+		if strings.TrimSpace(contextName) == "" {
+			contextName = resolveDefaultContextName(cmd, projectFile)
 		}
 
 		project.ContextName = contextName

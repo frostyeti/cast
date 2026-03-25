@@ -93,16 +93,7 @@ func printDirectTaskHelpForRootRequest(cmd *cobra.Command) bool {
 		return false
 	}
 
-	contextName, _ := tmp.Flags().GetString("context")
-	if strings.TrimSpace(contextName) == "" {
-		contextName = parseContextFromArgs(rawArgs)
-	}
-	if strings.TrimSpace(contextName) == "" {
-		contextName = env.Get("CAST_CONTEXT")
-	}
-	if strings.TrimSpace(contextName) == "" {
-		contextName = "default"
-	}
+	contextName := resolveDefaultContextName(tmp, projectFile)
 
 	project.ContextName = contextName
 	if err := project.Init(); err != nil {

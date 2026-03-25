@@ -146,10 +146,6 @@ var tasksRunCmd = &cobra.Command{
 			}
 		}
 
-		if contextName == "" {
-			contextName = "default"
-		}
-
 		if projectFile != "" {
 			info, err := os.Stat(projectFile)
 
@@ -258,6 +254,10 @@ var tasksRunCmd = &cobra.Command{
 			if err != nil {
 				return errors.Newf("failed to load project file %s: %w", workspaceProject.Path, err)
 			}
+		}
+
+		if strings.TrimSpace(contextName) == "" {
+			contextName = resolveDefaultContextName(cmd, projectFile)
 		}
 
 		project.ContextName = contextName

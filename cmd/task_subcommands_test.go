@@ -20,6 +20,9 @@ func TestRootHelpIncludesTaskCommand(t *testing.T) {
 	if !strings.Contains(out, "\n  task        Manage and run tasks\n") {
 		t.Fatalf("expected task command in root help output, got: %s", out)
 	}
+	if !strings.Contains(out, "\n  self        Manage cast itself\n") {
+		t.Fatalf("expected self command in root help output, got: %s", out)
+	}
 }
 
 func TestTaskHelpIncludesSubcommands(t *testing.T) {

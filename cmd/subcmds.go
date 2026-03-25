@@ -379,21 +379,8 @@ func runTaskByID(cmd *cobra.Command, projectFile, taskID string, taskArgs []stri
 	}
 
 	contextName, _ := cmd.Flags().GetString("context")
-	if contextName == "" {
-		contextName, _ = cmd.InheritedFlags().GetString("context")
-	}
-	if contextName == "" {
-		if inherited, err := rootCmd.Flags().GetString("context"); err == nil && strings.TrimSpace(inherited) != "" {
-			contextName = strings.TrimSpace(inherited)
-		} else if parsed := parseContextFromArgs(os.Args[1:]); parsed != "" {
-			contextName = parsed
-		}
-	}
-	if contextName == "" {
-		contextName = os.Getenv("CAST_CONTEXT")
-	}
-	if contextName == "" {
-		contextName = "default"
+	if strings.TrimSpace(contextName) == "" {
+		contextName = resolveDefaultContextName(cmd, projectFile)
 	}
 
 	project.ContextName = contextName

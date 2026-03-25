@@ -194,6 +194,9 @@ func (p *Project) Init() error {
 
 	if p.ContextName == "" {
 		p.ContextName = env.Get("CAST_CONTEXT")
+		if p.ContextName == "" && p.Schema.Config != nil && p.Schema.Config.Context != nil {
+			p.ContextName = strings.TrimSpace(*p.Schema.Config.Context)
+		}
 		if p.ContextName == "" {
 			p.ContextName = "default"
 		}
