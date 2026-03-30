@@ -91,3 +91,156 @@ jobs:
 		}
 	}
 }
+
+func TestInit_DefaultUsesFromProjectConfigShell(t *testing.T) {
+	t.Setenv("CAST_DEFAULT_SHELL", "")
+
+	yamlData := `
+config:
+  shell: bash
+tasks:
+  build:
+    run: echo build
+`
+
+	var schema types.Project
+	if err := yaml.Unmarshal([]byte(yamlData), &schema); err != nil {
+		t.Fatalf("failed to unmarshal yaml: %v", err)
+	}
+
+	p := projects.Project{Schema: schema}
+	if err := p.Init(); err != nil {
+		t.Fatalf("failed to init project: %v", err)
+	}
+
+	task, ok := p.Tasks.Get("build")
+	if !ok {
+		t.Fatalf("expected build task to exist")
+	}
+
+	if task.Uses == nil || *task.Uses != "bash" {
+		t.Fatalf("expected uses to default to config shell bash, got %+v", task.Uses)
+	}
+}
+
+func TestInit_DefaultUsesFromEnvWhenConfigShellMissing(t *testing.T) {
+	t.Setenv("CAST_DEFAULT_SHELL", "pwsh")
+
+	yamlData := `
+tasks:
+  build:
+    run: echo build
+`
+
+	var schema types.Project
+	if err := yaml.Unmarshal([]byte(yamlData), &schema); err != nil {
+		t.Fatalf("failed to unmarshal yaml: %v", err)
+	}
+
+	p := projects.Project{Schema: schema}
+	if err := p.Init(); err != nil {
+		t.Fatalf("failed to init project: %v", err)
+	}
+
+	task, ok := p.Tasks.Get("build")
+	if !ok {
+		t.Fatalf("expected build task to exist")
+	}
+
+	if task.Uses == nil || *task.Uses != "pwsh" {
+		t.Fatalf("expected uses to default to env shell pwsh, got %+v", task.Uses)
+	}
+}
+
+func TestInit_DefaultUsesConfigShellOverridesEnv(t *testing.T) {
+	t.Setenv("CAST_DEFAULT_SHELL", "pwsh")
+
+	yamlData := `
+config:
+  shell: bash
+tasks:
+  build:
+    run: echo build
+`
+
+	var schema types.Project
+	if err := yaml.Unmarshal([]byte(yamlData), &schema); err != nil {
+		t.Fatalf("failed to unmarshal yaml: %v", err)
+	}
+
+	p := projects.Project{Schema: schema}
+	if err := p.Init(); err != nil {
+		t.Fatalf("failed to init project: %v", err)
+	}
+
+	task, ok := p.Tasks.Get("build")
+	if !ok {
+		t.Fatalf("expected build task to exist")
+	}
+
+	if task.Uses == nil || *task.Uses != "bash" {
+		t.Fatalf("expected config shell bash to override env, got %+v", task.Uses)
+	}
+}
+
+func TestInit_ExplicitTaskUsesNotOverridden(t *testing.T) {
+	t.Setenv("CAST_DEFAULT_SHELL", "pwsh")
+
+	yamlData := `
+config:
+  shell: bash
+tasks:
+  build:
+    uses: docker
+    run: echo build
+`
+
+	var schema types.Project
+	if err := yaml.Unmarshal([]byte(yamlData), &schema); err != nil {
+		t.Fatalf("failed to unmarshal yaml: %v", err)
+	}
+
+	p := projects.Project{Schema: schema}
+	if err := p.Init(); err != nil {
+		t.Fatalf("failed to init project: %v", err)
+	}
+
+	task, ok := p.Tasks.Get("build")
+	if !ok {
+		t.Fatalf("expected build task to exist")
+	}
+
+	if task.Uses == nil || *task.Uses != "docker" {
+		t.Fatalf("expected explicit uses docker to be preserved, got %+v", task.Uses)
+	}
+}
+
+func TestInit_EmptyTaskUsesDefaultsToShell(t *testing.T) {
+	t.Setenv("CAST_DEFAULT_SHELL", "sh")
+
+	yamlData := `
+tasks:
+  build:
+    uses: ""
+    run: echo build
+`
+
+	var schema types.Project
+	if err := yaml.Unmarshal([]byte(yamlData), &schema); err != nil {
+		t.Fatalf("failed to unmarshal yaml: %v", err)
+	}
+
+	p := projects.Project{Schema: schema}
+	if err := p.Init(); err != nil {
+		t.Fatalf("failed to init project: %v", err)
+	}
+
+	task, ok := p.Tasks.Get("build")
+	if !ok {
+		t.Fatalf("expected build task to exist")
+	}
+
+	if task.Uses == nil || *task.Uses != "sh" {
+		t.Fatalf("expected empty uses to default from env sh, got %+v", task.Uses)
+	}
+}

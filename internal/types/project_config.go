@@ -8,6 +8,7 @@ import (
 // ProjectConfig holds root-level parser behavior for a project.
 type ProjectConfig struct {
 	Context      *string        `yaml:"context,omitempty" json:"context,omitempty"`
+	Shell        *string        `yaml:"shell,omitempty" json:"shell,omitempty"`
 	Substitution *bool          `yaml:"substitution,omitempty" json:"substitution,omitempty"`
 	Values       map[string]any `yaml:"-" json:"values,omitempty"`
 }
@@ -53,6 +54,11 @@ func (pc *ProjectConfig) UnmarshalYAML(node *yaml.Node) error {
 				return errors.NewYamlError(valueNode, "expected yaml boolean for 'substitution' field")
 			}
 			pc.Substitution = &substitutionValue
+		case "shell":
+			if valueNode.Kind != yaml.ScalarNode {
+				return errors.NewYamlError(valueNode, "expected yaml scalar for 'shell' field")
+			}
+			pc.Shell = &valueNode.Value
 		default:
 			var value any
 			if err := valueNode.Decode(&value); err != nil {

@@ -570,6 +570,19 @@ func (p *Project) Init() error {
 		}
 	}
 
+	defaultTaskUses := resolveDefaultTaskUses(p.Schema.Config)
+	for _, task := range p.Tasks.Values() {
+		if task.Uses == nil || strings.TrimSpace(*task.Uses) == "" {
+			uses := defaultTaskUses
+			task.Uses = &uses
+		} else {
+			uses := strings.TrimSpace(*task.Uses)
+			task.Uses = &uses
+		}
+
+		p.Tasks.Set(&task)
+	}
+
 	if p.Schema.Jobs != nil {
 		for _, job := range p.Schema.Jobs.Values() {
 			extends := job.Extends
@@ -871,6 +884,20 @@ func loadModules(p *Project) error {
 	}
 
 	return nil
+}
+
+func resolveDefaultTaskUses(cfg *types.ProjectConfig) string {
+	if cfg != nil && cfg.Shell != nil {
+		if shell := strings.TrimSpace(*cfg.Shell); shell != "" {
+			return shell
+		}
+	}
+
+	if shell := strings.TrimSpace(os.Getenv("CAST_DEFAULT_SHELL")); shell != "" {
+		return shell
+	}
+
+	return "shell"
 }
 
 func resolveModules(p *Project, imports *types.Imports) error {

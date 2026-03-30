@@ -80,6 +80,10 @@
           "type": "boolean",
           "default": true,
           "description": "Enable or disable environment substitution while evaluating task values."
+        },
+        "shell": {
+          "type": "string",
+          "description": "Default task `uses` value when a task omits `uses` or sets it to an empty string. Falls back to `CAST_DEFAULT_SHELL`, then `shell`."
         }
       },
       "additionalProperties": true
