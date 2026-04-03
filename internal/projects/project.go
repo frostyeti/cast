@@ -869,10 +869,16 @@ func loadModules(p *Project) error {
 						task.Id = id.Convert(name)
 					}
 
+					if task.Env == nil {
+						task.Env = types.NewEnv()
+					}
+
 					task.Env.Set("CAST_FILE", mod.File)
 					task.Env.Set("CAST_DIR", mod.Dir)
 					task.Env.Set("CAST_PARENT_FILE", p.File)
 					task.Env.Set("CAST_PARENT_DIR", p.Dir)
+					task.Env.Set("CAST_MODULE_DIR", mod.Dir)
+					task.Env.Set("CAST_MODULE_FILE", mod.File)
 					task.Env.Set("CAST_MODULE_ID", mod.Id)
 					task.Env.Set("CAST_MODULE_NAME", mod.Name)
 					task.Env.Set("CAST_MODULE_VERSION", mod.Version)
@@ -1057,6 +1063,11 @@ func setupEnv(p *Project) error {
 
 	e := types.NewEnv()
 	e.Merge(globalEnv)
+
+	e.Set("CAST_FILE", p.File)
+	e.Set("CAST_DIR", p.Dir)
+	e.Set("CAST_PARENT_DIR", p.Dir)
+	e.Set("CAST_PARENT_FILE", p.File)
 
 	sub := true
 	if p.Schema.Config != nil && p.Schema.Config.Substitution != nil {

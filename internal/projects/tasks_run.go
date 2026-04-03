@@ -636,6 +636,10 @@ func (p *Project) RunTask(params RunTasksParams) ([]*TaskResult, error) {
 
 					projectEnv.Set(*key, v)
 				}
+
+				if err := os.WriteFile(castEnv, []byte{}, 0o644); err != nil {
+					return nil, err
+				}
 			}
 
 			if paths.IsFile(castOutputs) {
