@@ -25,12 +25,13 @@ var tasksRunCmd = &cobra.Command{
 		invokedFromTaskNamespace := false
 		invokedViaRunShortcut := false
 		if len(args) > 1 {
-			if args[1] == "task" || args[1] == "tasks" {
+			switch args[1] {
+			case "task", "tasks":
 				invokedFromTaskNamespace = true
 				if len(args) > 2 && (args[2] == "run" || args[2] == "r") {
 					invokedViaRunShortcut = true
 				}
-			} else if args[1] == "run" || args[1] == "r" {
+			case "run", "r":
 				invokedViaRunShortcut = true
 			}
 		}
@@ -201,7 +202,7 @@ var tasksRunCmd = &cobra.Command{
 						rootProjFile := foundCastfiles[i]
 						tmpProj := &projects.Project{}
 						if err := tmpProj.LoadFromYaml(rootProjFile); err == nil {
-							tmpProj.InitWorkspace()
+							_ = tmpProj.InitWorkspace()
 							for alias, wp := range tmpProj.Workspace {
 								absWpDir := filepath.Dir(wp.Path)
 								if absWpDir == cwd {

@@ -7,10 +7,9 @@ import (
 
 // Import describes a module or task source to load into a project.
 type Import struct {
-	From         string   `json:"from,omitempty"`
-	Namespace    string   `json:"namespace,omitempty"`
-	Tasks        []string `json:"tasks,omitempty"`
-	resolvedFrom string   `json:"-"`
+	From      string   `json:"from,omitempty"`
+	Namespace string   `json:"namespace,omitempty"`
+	Tasks     []string `json:"tasks,omitempty"`
 }
 
 // Imports is an ordered list of import definitions.

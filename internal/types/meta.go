@@ -15,11 +15,6 @@ type Meta struct {
 	keys   []string
 }
 
-type jsonMeta struct {
-	Values map[string]interface{} `json:"values"`
-	Keys   []string               `json:"keys"`
-}
-
 // NewMeta returns an initialized metadata map.
 func NewMeta() *Meta {
 	return &Meta{

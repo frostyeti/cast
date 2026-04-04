@@ -121,7 +121,7 @@ var taskClearCacheCmd = &cobra.Command{
 			if err := os.RemoveAll(cacheDir); err != nil {
 				return err
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "Cleared local task cache: %s\n", cacheDir)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Cleared local task cache: %s\n", cacheDir)
 			return nil
 		}
 
@@ -129,7 +129,7 @@ var taskClearCacheCmd = &cobra.Command{
 		if err := os.RemoveAll(globalDir); err != nil {
 			return err
 		}
-		fmt.Fprintf(cmd.OutOrStdout(), "Cleared global task cache: %s\n", globalDir)
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Cleared global task cache: %s\n", globalDir)
 		return nil
 	},
 }
@@ -264,16 +264,16 @@ var taskAddCmd = &cobra.Command{
 			return err
 		}
 
-		fmt.Fprintf(cmd.OutOrStdout(), "Added task '%s' to %s\n", name, projectFile)
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Added task '%s' to %s\n", name, projectFile)
 		return nil
 	},
 }
 
 func promptValue(reader *bufio.Reader, out io.Writer, label, defaultValue string) (string, error) {
 	if defaultValue != "" {
-		fmt.Fprintf(out, "%s [%s]: ", label, defaultValue)
+		_, _ = fmt.Fprintf(out, "%s [%s]: ", label, defaultValue)
 	} else {
-		fmt.Fprintf(out, "%s: ", label)
+		_, _ = fmt.Fprintf(out, "%s: ", label)
 	}
 
 	line, err := reader.ReadString('\n')

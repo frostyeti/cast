@@ -10,7 +10,7 @@ func TestLogBroadcaster_WriteAndHistory(t *testing.T) {
 	b := NewLogBroadcaster()
 
 	// Write before anyone subscribes
-	b.Write([]byte("first line\n"))
+	_, _ = b.Write([]byte("first line\n"))
 
 	ch, history := b.Subscribe()
 	if history != "first line\n" {
@@ -18,7 +18,7 @@ func TestLogBroadcaster_WriteAndHistory(t *testing.T) {
 	}
 
 	// Write after subscribe
-	b.Write([]byte("second line\n"))
+	_, _ = b.Write([]byte("second line\n"))
 
 	select {
 	case msg := <-ch:
@@ -43,7 +43,7 @@ func TestLogBroadcaster_Close(t *testing.T) {
 	b := NewLogBroadcaster()
 	ch, _ := b.Subscribe()
 
-	b.Write([]byte("data"))
+	_, _ = b.Write([]byte("data"))
 
 	// read the data
 	<-ch
@@ -51,7 +51,7 @@ func TestLogBroadcaster_Close(t *testing.T) {
 	b.Close()
 
 	// Write after close should not panic or error ideally
-	b.Write([]byte("ignored"))
+	_, _ = b.Write([]byte("ignored"))
 
 	// The channel should be closed
 	_, ok := <-ch

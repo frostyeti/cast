@@ -19,8 +19,6 @@ var globalScope = &Scope{
 
 var globalEnv = types.NewEnv()
 
-var projectCache = make(map[string]*Project)
-
 type Scope struct {
 	values map[string]any
 	keys   []string

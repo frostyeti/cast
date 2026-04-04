@@ -376,11 +376,10 @@ func runXPlatShell(script string, ctx TaskContext) *TaskResult {
 				cmd0.WithEnvMap(ctx.Task.Env)
 				cmd0.WithCwd(ctx.Task.Cwd)
 
-				j := 1
 				var pipe *exec.Pipeline
 				l := len(ops)
 				nextOp := &commandOperation{}
-				j = i + 1
+				j := i + 1
 				for j < l {
 
 					nextOp := ops[j]
@@ -414,10 +413,10 @@ func runXPlatShell(script string, ctx TaskContext) *TaskResult {
 				i = j
 				o, err := pipe.Output()
 				if len(o.Stdout) > 0 {
-					ctx.Stdout.Write(o.Stdout)
+					_, _ = ctx.Stdout.Write(o.Stdout)
 				}
 				if len(o.Stderr) > 0 {
-					ctx.Stderr.Write(o.Stderr)
+					_, _ = ctx.Stderr.Write(o.Stderr)
 				}
 				if o.Code == 0 {
 					if nextOp.IsOr() {

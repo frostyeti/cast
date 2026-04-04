@@ -47,7 +47,9 @@ func provideProjectCompletion(cmd *cobra.Command, args []string, toComplete stri
 		return nil, cobra.ShellCompDirectiveError
 	}
 
-	project.InitWorkspace()
+	if err := project.InitWorkspace(); err != nil {
+		return nil, cobra.ShellCompDirectiveError
+	}
 
 	// If completing a workspace directive e.g. @child
 	if strings.HasPrefix(toComplete, "@") {

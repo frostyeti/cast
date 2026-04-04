@@ -113,7 +113,9 @@ func (s *Server) Start() error {
 					http.Error(w, "index.html not found", http.StatusInternalServerError)
 					return
 				}
-				defer indexFile.Close()
+				defer func() {
+					_ = indexFile.Close()
+				}()
 
 				stat, err := indexFile.Stat()
 				if err != nil {
@@ -127,7 +129,9 @@ func (s *Server) Start() error {
 			http.Error(w, "internal server error", http.StatusInternalServerError)
 			return
 		}
-		defer file.Close()
+		defer func() {
+			_ = file.Close()
+		}()
 
 		stat, err := file.Stat()
 		if err != nil {
@@ -142,7 +146,9 @@ func (s *Server) Start() error {
 				http.Error(w, "index.html not found", http.StatusInternalServerError)
 				return
 			}
-			defer indexFile.Close()
+			defer func() {
+				_ = indexFile.Close()
+			}()
 
 			stat, err := indexFile.Stat()
 			if err != nil {
@@ -217,7 +223,10 @@ func (s *Server) loadProject(file string) {
 		log.Printf("Warning: failed to parse %s: %v", file, err)
 		return
 	}
-	proj.Init()
+	if err := proj.Init(); err != nil {
+		log.Printf("Warning: failed to initialize %s: %v", file, err)
+		return
+	}
 
 	// ID / Name Generation
 	base := filepath.Base(file)
@@ -360,7 +369,7 @@ func (s *Server) runJob(projectID, jobID string, env map[string]string, triggere
 
 		for _, step := range job.Steps {
 			if step.TaskName != nil {
-				broadcaster.Write([]byte(fmt.Sprintf("--- Running task: %s ---\n", *step.TaskName)))
+				_, _ = fmt.Fprintf(broadcaster, "--- Running task: %s ---\n", *step.TaskName)
 				params := projects.RunTasksParams{
 					Targets:     []string{*step.TaskName},
 					Context:     context.Background(),
@@ -408,7 +417,7 @@ func (s *Server) runJob(projectID, jobID string, env map[string]string, triggere
 
 			if len(nextJobs) > 0 {
 				log.Printf("Job %s triggered dependent jobs: %v", jobID, nextJobs)
-				broadcaster.Write([]byte(fmt.Sprintf("\n--- Triggering dependent jobs: %v ---\n", nextJobs)))
+				_, _ = fmt.Fprintf(broadcaster, "\n--- Triggering dependent jobs: %v ---\n", nextJobs)
 				for _, next := range nextJobs {
 					go func(n string) {
 						time.Sleep(100 * time.Millisecond) // slight delay to ensure logs order
@@ -429,7 +438,7 @@ func (s *Server) runJob(projectID, jobID string, env map[string]string, triggere
 // HTTP Handlers
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("OK"))
+	_, _ = w.Write([]byte("OK"))
 }
 
 func (s *Server) handleDownloadRunLogs(w http.ResponseWriter, r *http.Request) {
@@ -453,7 +462,7 @@ func (s *Server) handleDownloadRunLogs(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"run-%s.log\"", runID))
 	w.Header().Set("Content-Type", "text/plain")
-	w.Write([]byte(logs))
+	_, _ = w.Write([]byte(logs))
 }
 
 func (s *Server) handleStream(w http.ResponseWriter, r *http.Request) {
@@ -480,7 +489,7 @@ func (s *Server) handleStream(w http.ResponseWriter, r *http.Request) {
 		logs, err := getRunLogs(s.db, runID)
 		if err == nil && logs != "" {
 			// Write the historical logs
-			fmt.Fprintf(w, "data: %s\n\n", strings.ReplaceAll(logs, "\n", "\ndata: "))
+			_, _ = fmt.Fprintf(w, "data: %s\n\n", strings.ReplaceAll(logs, "\n", "\ndata: "))
 			flusher.Flush()
 			return
 		}
@@ -495,7 +504,7 @@ func (s *Server) handleStream(w http.ResponseWriter, r *http.Request) {
 
 	// Send history first
 	if history != "" {
-		fmt.Fprintf(w, "data: %s\n\n", strings.ReplaceAll(history, "\n", "\ndata: "))
+		_, _ = fmt.Fprintf(w, "data: %s\n\n", strings.ReplaceAll(history, "\n", "\ndata: "))
 		flusher.Flush()
 	}
 
@@ -508,7 +517,7 @@ func (s *Server) handleStream(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if chunk != "" {
-				fmt.Fprintf(w, "data: %s\n\n", strings.ReplaceAll(chunk, "\n", "\ndata: "))
+				_, _ = fmt.Fprintf(w, "data: %s\n\n", strings.ReplaceAll(chunk, "\n", "\ndata: "))
 				flusher.Flush()
 			}
 		case <-r.Context().Done():
@@ -529,7 +538,9 @@ func (s *Server) handleGetProjects(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(list)
+	if err := json.NewEncoder(w).Encode(list); err != nil {
+		log.Printf("Failed to encode project list: %v", err)
+	}
 }
 
 func (s *Server) handleGetJobs(w http.ResponseWriter, r *http.Request) {
@@ -560,7 +571,9 @@ func (s *Server) handleGetJobs(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(list)
+	if err := json.NewEncoder(w).Encode(list); err != nil {
+		log.Printf("Failed to encode job list: %v", err)
+	}
 }
 
 func (s *Server) handleGetTasks(w http.ResponseWriter, r *http.Request) {
@@ -589,7 +602,9 @@ func (s *Server) handleGetTasks(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(list)
+	if err := json.NewEncoder(w).Encode(list); err != nil {
+		log.Printf("Failed to encode task list: %v", err)
+	}
 }
 
 func (s *Server) handleGetJobRuns(w http.ResponseWriter, r *http.Request) {
@@ -612,7 +627,9 @@ func (s *Server) handleGetJobRuns(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(runs)
+	if err := json.NewEncoder(w).Encode(runs); err != nil {
+		log.Printf("Failed to encode job runs: %v", err)
+	}
 }
 
 func (s *Server) handleGetTaskRuns(w http.ResponseWriter, r *http.Request) {
@@ -635,7 +652,9 @@ func (s *Server) handleGetTaskRuns(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(runs)
+	if err := json.NewEncoder(w).Encode(runs); err != nil {
+		log.Printf("Failed to encode task runs: %v", err)
+	}
 }
 
 func (s *Server) handleTriggerJob(w http.ResponseWriter, r *http.Request) {
@@ -651,10 +670,12 @@ func (s *Server) handleTriggerJob(w http.ResponseWriter, r *http.Request) {
 	runID := s.runJob(id, jobId, nil, &trigger)
 
 	w.WriteHeader(http.StatusAccepted)
-	json.NewEncoder(w).Encode(map[string]string{
+	if err := json.NewEncoder(w).Encode(map[string]string{
 		"message": fmt.Sprintf("Triggered job %s in project %s", jobId, id),
 		"runId":   runID,
-	})
+	}); err != nil {
+		log.Printf("Failed to encode trigger job response: %v", err)
+	}
 }
 
 func (s *Server) handleTriggerTask(w http.ResponseWriter, r *http.Request) {
@@ -715,7 +736,7 @@ func (s *Server) handleTriggerTask(w http.ResponseWriter, r *http.Request) {
 			run.Status = "failed"
 			run.Logs += fmt.Sprintf("\nError: %v", err)
 			log.Printf("Task %s failed: %v", taskId, err)
-			broadcaster.Write([]byte(fmt.Sprintf("\nError: %v\n", err)))
+			_, _ = fmt.Fprintf(broadcaster, "\nError: %v\n", err)
 		} else {
 			run.Status = "success"
 			log.Printf("Task %s completed successfully", taskId)
@@ -727,10 +748,12 @@ func (s *Server) handleTriggerTask(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	w.WriteHeader(http.StatusAccepted)
-	json.NewEncoder(w).Encode(map[string]string{
+	if err := json.NewEncoder(w).Encode(map[string]string{
 		"message": fmt.Sprintf("Triggered task %s in project %s", taskId, projId),
 		"runId":   runID,
-	})
+	}); err != nil {
+		log.Printf("Failed to encode trigger task response: %v", err)
+	}
 }
 
 func (s *Server) handleGetJob(w http.ResponseWriter, r *http.Request) {
@@ -755,7 +778,9 @@ func (s *Server) handleGetJob(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(job)
+	if err := json.NewEncoder(w).Encode(job); err != nil {
+		log.Printf("Failed to encode job: %v", err)
+	}
 }
 
 func (s *Server) handleGetTask(w http.ResponseWriter, r *http.Request) {
@@ -780,7 +805,9 @@ func (s *Server) handleGetTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(task)
+	if err := json.NewEncoder(w).Encode(task); err != nil {
+		log.Printf("Failed to encode task: %v", err)
+	}
 }
 
 func (s *Server) handleHelp(w http.ResponseWriter, r *http.Request) {
@@ -799,7 +826,9 @@ func (s *Server) handleHelp(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(endpoints)
+	if err := json.NewEncoder(w).Encode(endpoints); err != nil {
+		log.Printf("Failed to encode help endpoints: %v", err)
+	}
 }
 
 func (s *Server) handleWebhook(w http.ResponseWriter, r *http.Request) {
@@ -879,18 +908,16 @@ func (s *Server) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if payload != nil {
-		for k, v := range payload {
-			// Basic serialization for top-level keys
-			switch val := v.(type) {
-			case string:
-				env["WEBHOOK_PAYLOAD_"+strings.ToUpper(k)] = val
-			case float64, int, bool:
-				env["WEBHOOK_PAYLOAD_"+strings.ToUpper(k)] = fmt.Sprintf("%v", val)
-			default:
-				b, _ := json.Marshal(val)
-				env["WEBHOOK_PAYLOAD_"+strings.ToUpper(k)] = string(b)
-			}
+	for k, v := range payload {
+		// Basic serialization for top-level keys
+		switch val := v.(type) {
+		case string:
+			env["WEBHOOK_PAYLOAD_"+strings.ToUpper(k)] = val
+		case float64, int, bool:
+			env["WEBHOOK_PAYLOAD_"+strings.ToUpper(k)] = fmt.Sprintf("%v", val)
+		default:
+			b, _ := json.Marshal(val)
+			env["WEBHOOK_PAYLOAD_"+strings.ToUpper(k)] = string(b)
 		}
 	}
 
@@ -898,10 +925,12 @@ func (s *Server) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		trigger := "webhook"
 		runID := s.runJob(targetProj.Schema.Id, targetWebhook.Job, env, &trigger)
 		w.WriteHeader(http.StatusAccepted)
-		json.NewEncoder(w).Encode(map[string]string{
+		if err := json.NewEncoder(w).Encode(map[string]string{
 			"message": fmt.Sprintf("Triggered job %s via webhook", targetWebhook.Job),
 			"runId":   runID,
-		})
+		}); err != nil {
+			log.Printf("Failed to encode webhook job response: %v", err)
+		}
 		return
 	}
 
@@ -931,16 +960,18 @@ func (s *Server) handleWebhook(w http.ResponseWriter, r *http.Request) {
 			_, err := targetProj.RunTask(params)
 			if err != nil {
 				log.Printf("Webhook Task %s failed: %v", targetWebhook.Task, err)
-				broadcaster.Write([]byte(fmt.Sprintf("\nError: %v\n", err)))
+				_, _ = fmt.Fprintf(broadcaster, "\nError: %v\n", err)
 			} else {
 				log.Printf("Webhook Task %s completed successfully", targetWebhook.Task)
 			}
 		}()
 		w.WriteHeader(http.StatusAccepted)
-		json.NewEncoder(w).Encode(map[string]string{
+		if err := json.NewEncoder(w).Encode(map[string]string{
 			"message": fmt.Sprintf("Triggered task %s via webhook", targetWebhook.Task),
 			"runId":   runID,
-		})
+		}); err != nil {
+			log.Printf("Failed to encode webhook task response: %v", err)
+		}
 		return
 	}
 

@@ -27,13 +27,14 @@ func (s *Schedule) UnmarshalYAML(value *yaml.Node) error {
 
 		switch keyNode.Value {
 		case "crons":
-			if valueNode.Kind == yaml.ScalarNode {
+			switch valueNode.Kind {
+			case yaml.ScalarNode:
 				s.Crons = append(s.Crons, valueNode.Value)
-			} else if valueNode.Kind == yaml.SequenceNode {
+			case yaml.SequenceNode:
 				for _, item := range valueNode.Content {
 					s.Crons = append(s.Crons, item.Value)
 				}
-			} else {
+			default:
 				return errors.NewYamlError(valueNode, "crons must be a string or sequence of strings")
 			}
 		case "cron": // backward compatibility

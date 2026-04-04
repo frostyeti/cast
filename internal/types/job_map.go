@@ -16,11 +16,6 @@ type JobMap struct {
 	keys []string
 }
 
-type jsonJobMap struct {
-	Values map[string]Job `json:"values"`
-	Keys   []string       `json:"keys"`
-}
-
 func (t *JobMap) MarshalJSON() ([]byte, error) {
 	if t == nil || len(t.keys) == 0 {
 		return json.Marshal([]Job{})
@@ -271,14 +266,12 @@ func (t *JobMap) FlattenJobs(targets []string, context string) ([]Job, error) {
 func FlattenJobs(targets []string, jobs JobMap, set []Job, context string) ([]Job, error) {
 
 	for _, target := range targets {
-		t := target
-
 		var job Job
 		found := false
 
 		// prefer context-specific Job if context is provided and it is found.
 		if context != "" {
-			t = target + ":" + context
+			t := target + ":" + context
 			job2, ok := jobs.Get(t)
 			if ok {
 				job = job2
@@ -287,10 +280,9 @@ func FlattenJobs(targets []string, jobs JobMap, set []Job, context string) ([]Jo
 		}
 
 		if !found {
-			t = target
-			job2, ok := jobs.Get(t)
+			job2, ok := jobs.Get(target)
 			if !ok {
-				return nil, errors.New("Job not found: " + target + " or " + t)
+				return nil, errors.New("Job not found: " + target + " or " + target)
 			}
 
 			job = job2

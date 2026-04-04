@@ -22,7 +22,9 @@ func TestE2E_RemoteCastTaskWithSemver(t *testing.T) {
 	// 2. Setup a dummy "remote" Git repository
 	t.Log("Setting up dummy remote Git repository...")
 	repoDir := filepath.Join(tmpDir, "remote-repo")
-	os.MkdirAll(repoDir, 0755)
+	if err := os.MkdirAll(repoDir, 0o755); err != nil {
+		t.Fatalf("failed to create remote repo dir: %v", err)
+	}
 
 	// init git
 	runGit(t, repoDir, "init")
@@ -62,7 +64,9 @@ export function run() {
 
 	// 3. Create the project that uses the remote task
 	projectDir := filepath.Join(tmpDir, "project")
-	os.MkdirAll(projectDir, 0755)
+	if err := os.MkdirAll(projectDir, 0o755); err != nil {
+		t.Fatalf("failed to create project dir: %v", err)
+	}
 
 	t.Log("Creating temp castfile...")
 	yamlFile := filepath.Join(projectDir, "castfile")

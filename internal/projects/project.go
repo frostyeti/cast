@@ -113,7 +113,10 @@ func (p *Project) InitWorkspace() error {
 
 	dir := p.Dir
 
-	filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
+	if err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
 
 		if !d.IsDir() {
 			name := d.Name()
@@ -128,7 +131,7 @@ func (p *Project) InitWorkspace() error {
 				_, ok := p.Workspace[proj.Alias]
 				if ok {
 					// write warning to stdout, use yelling style
-					os.Stdout.WriteString("\x1b[31mWARNING: workspace alias " + proj.Alias + " already exists, skipping " + path + "\n\x1b[0m")
+					_, _ = os.Stdout.WriteString("\x1b[31mWARNING: workspace alias " + proj.Alias + " already exists, skipping " + path + "\n\x1b[0m")
 				}
 
 				p.Workspace[proj.Alias] = proj
@@ -169,7 +172,9 @@ func (p *Project) InitWorkspace() error {
 		}
 
 		return nil
-	})
+	}); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -510,10 +515,7 @@ func (p *Project) Init() error {
 			if len(task.Hosts) == 0 && len(baseTask.Hosts) > 0 {
 				task.Hosts = baseTask.Hosts
 			} else {
-				hosts := make([]string, 0)
-				for _, h := range baseTask.Hosts {
-					hosts = append(hosts, h)
-				}
+				hosts := append([]string{}, baseTask.Hosts...)
 				for _, h := range task.Hosts {
 					if !slices.Contains(hosts, h) {
 						hosts = append(hosts, h)
@@ -529,11 +531,7 @@ func (p *Project) Init() error {
 			if len(task.DotEnv) == 0 && len(baseTask.DotEnv) > 0 {
 				task.DotEnv = baseTask.DotEnv
 			} else if len(task.DotEnv) > 0 && len(baseTask.DotEnv) > 0 {
-				dotenv := []string{}
-
-				for _, de := range baseTask.DotEnv {
-					dotenv = append(dotenv, de)
-				}
+				dotenv := append([]string{}, baseTask.DotEnv...)
 
 				for _, de := range task.DotEnv {
 					replaceIndex := -1
@@ -623,11 +621,7 @@ func (p *Project) Init() error {
 				if job.DotEnv == nil && baseJob.DotEnv != nil {
 					job.DotEnv = baseJob.DotEnv
 				} else if job.DotEnv != nil && baseJob.DotEnv != nil {
-					dotenv := types.DotEnvs{}
-
-					for _, de := range *baseJob.DotEnv {
-						dotenv = append(dotenv, de)
-					}
+					dotenv := append(types.DotEnvs{}, (*baseJob.DotEnv)...)
 
 					for _, de := range *job.DotEnv {
 						replaceIndex := -1
@@ -1086,7 +1080,9 @@ func setupEnv(p *Project) error {
 	}
 
 	if p.Schema.Paths != nil {
-		loadPaths(*p.Schema.Paths, e, p.Dir)
+		if err := loadPaths(*p.Schema.Paths, e, p.Dir); err != nil {
+			return err
+		}
 	}
 
 	f := e.Get("CAST_PATH")
@@ -1119,14 +1115,23 @@ func setupEnv(p *Project) error {
 		if err != nil {
 			return err
 		}
-		f.Write([]byte{})
-		f.Close()
+		if _, err := f.Write([]byte{}); err != nil {
+			_ = f.Close()
+			return err
+		}
+		if err := f.Close(); err != nil {
+			return err
+		}
 		e.Set("CAST_PATH", f.Name())
 		p.cleanupPath = true
 	}
 
-	e.PrependPath("./bin")
-	e.PrependPath("./node_modules/.bin")
+	if err := e.PrependPath("./bin"); err != nil {
+		return err
+	}
+	if err := e.PrependPath("./node_modules/.bin"); err != nil {
+		return err
+	}
 
 	for _, path := range p.importedOrder {
 		mod := p.imported[path]
@@ -1216,8 +1221,13 @@ func setupEnv(p *Project) error {
 		if err != nil {
 			return err
 		}
-		f.Write([]byte{})
-		f.Close()
+		if _, err := f.Write([]byte{}); err != nil {
+			_ = f.Close()
+			return err
+		}
+		if err := f.Close(); err != nil {
+			return err
+		}
 		e.Set("CAST_ENV", f.Name())
 		p.cleanupEnv = true
 	}
@@ -1228,8 +1238,13 @@ func setupEnv(p *Project) error {
 		if err != nil {
 			return err
 		}
-		f.Write([]byte{})
-		f.Close()
+		if _, err := f.Write([]byte{}); err != nil {
+			_ = f.Close()
+			return err
+		}
+		if err := f.Close(); err != nil {
+			return err
+		}
 		e.Set("CAST_OUTPUTS", f.Name())
 		p.cleanupOutputs = true
 	}

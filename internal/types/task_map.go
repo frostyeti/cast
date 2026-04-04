@@ -16,11 +16,6 @@ type TaskMap struct {
 	keys []string
 }
 
-type jsonTaskMap struct {
-	Values map[string]Task `json:"values"`
-	Keys   []string        `json:"keys"`
-}
-
 func (t *TaskMap) MarshalJSON() ([]byte, error) {
 	if t == nil || len(t.keys) == 0 {
 		return json.Marshal([]Task{})
@@ -271,14 +266,12 @@ func (t *TaskMap) FlattenTasks(targets []string, context string) ([]Task, error)
 func FlattenTasks(targets []string, tasks TaskMap, set []Task, context string) ([]Task, error) {
 
 	for _, target := range targets {
-		t := target
-
 		var task Task
 		found := false
 
 		// prefer context-specific task if context is provided and it is found.
 		if context != "" {
-			t = target + ":" + context
+			t := target + ":" + context
 			task2, ok := tasks.Get(t)
 			if ok {
 				task = task2
@@ -287,10 +280,9 @@ func FlattenTasks(targets []string, tasks TaskMap, set []Task, context string) (
 		}
 
 		if !found {
-			t = target
-			task2, ok := tasks.Get(t)
+			task2, ok := tasks.Get(target)
 			if !ok {
-				return nil, errors.New("Task not found: " + target + " or " + t)
+				return nil, errors.New("Task not found: " + target + " or " + target)
 			}
 
 			task = task2

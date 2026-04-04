@@ -108,13 +108,17 @@ var sshCmd = &cobra.Command{
 		if err != nil {
 			return errors.New("failed to connect to SSH target " + targetHost.Host + ": " + err.Error())
 		}
-		defer client.Close()
+		defer func() {
+			_ = client.Close()
+		}()
 
 		sess, err := client.NewSession()
 		if err != nil {
 			return errors.New("failed to create SSH session: " + err.Error())
 		}
-		defer sess.Close()
+		defer func() {
+			_ = sess.Close()
+		}()
 
 		scriptPath, _ := cmd.Flags().GetString("script")
 		useTemplate, _ := cmd.Flags().GetBool("template")
@@ -160,7 +164,9 @@ var sshCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("terminal make raw: %s", err)
 		}
-		defer term.Restore(fd, state)
+		defer func() {
+			_ = term.Restore(fd, state)
+		}()
 
 		termWidth, termHeight, err := term.GetSize(fd)
 		if err != nil {

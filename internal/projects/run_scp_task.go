@@ -124,7 +124,9 @@ func remoteScpFileExists(client *goph.Client, remotePath string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	defer ftp.Close()
+	defer func() {
+		_ = ftp.Close()
+	}()
 
 	if _, err := ftp.Stat(remotePath); err != nil {
 		var statusErr *sftp.StatusError
@@ -174,9 +176,7 @@ func runScpTask(ctx TaskContext) *TaskResult {
 				}
 			}
 		} else if arr2, ok := v.([]string); ok {
-			for _, item := range arr2 {
-				files = append(files, item)
-			}
+			files = append(files, arr2...)
 		}
 	}
 
@@ -434,13 +434,17 @@ func runScpTarget(ctx context.Context, direction string, taskContext TaskContext
 		return err2
 	}
 
-	defer client.Close()
+	defer func() {
+		_ = client.Close()
+	}()
 
 	for _, file := range files {
 		source, destination, optional, err := splitScpFileSpec(file)
 		if err != nil {
 			return err
 		}
+
+		var transferErr error
 
 		if direction != "download" {
 			sourcePath, err := resolveScpLocalPath(taskContext, source)
@@ -469,8 +473,8 @@ func runScpTarget(ctx context.Context, direction string, taskContext TaskContext
 				return err2
 			}
 
-			fmt.Fprintf(os.Stdout, "[%s]: Uploading %s to %s\n", target.Host, source, destination)
-			err = Upload(ctx, client, sourcePath, destinationPath)
+			_, _ = fmt.Fprintf(os.Stdout, "[%s]: Uploading %s to %s\n", target.Host, source, destination)
+			transferErr = Upload(ctx, client, sourcePath, destinationPath)
 		} else {
 			remoteSource, err := resolveScpRemotePath(taskContext, source)
 			if err != nil {
@@ -498,24 +502,24 @@ func runScpTarget(ctx context.Context, direction string, taskContext TaskContext
 				return err2
 			}
 
-			fmt.Fprintf(os.Stdout, "[%s]: Downloading %s to %s\n", target.Host, source, destination)
-			err = Download(ctx, client, remoteSource, destinationPath)
+			_, _ = fmt.Fprintf(os.Stdout, "[%s]: Downloading %s to %s\n", target.Host, source, destination)
+			transferErr = Download(ctx, client, remoteSource, destinationPath)
 		}
 
-		if err != nil {
-			if optional && direction == "download" && isMissingScpFile(err) {
+		if transferErr != nil {
+			if optional && direction == "download" && isMissingScpFile(transferErr) {
 				continue
 			}
 
-			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-				return err
+			if errors.Is(transferErr, context.Canceled) || errors.Is(transferErr, context.DeadlineExceeded) {
+				return transferErr
 			}
-			err2 := errors.New("Failed to transfer file " + source + " to " + destination + ": " + err.Error())
-			err2 = errors.WithCause(err2, err)
+			err2 := errors.New("Failed to transfer file " + source + " to " + destination + ": " + transferErr.Error())
+			err2 = errors.WithCause(err2, transferErr)
 			return err2
 		}
 
-		fmt.Fprintf(os.Stdout, "[%s]: Transfer complete: %s\n", target.Host, file)
+		_, _ = fmt.Fprintf(os.Stdout, "[%s]: Transfer complete: %s\n", target.Host, file)
 	}
 
 	return nil
@@ -531,19 +535,25 @@ func Upload(ctx context.Context, c *goph.Client, localPath string, remotePath st
 	if err != nil {
 		return
 	}
-	defer local.Close()
+	defer func() {
+		_ = local.Close()
+	}()
 
 	ftp, err := c.NewSftp()
 	if err != nil {
 		return
 	}
-	defer ftp.Close()
+	defer func() {
+		_ = ftp.Close()
+	}()
 
 	remote, err := ftp.Create(remotePath)
 	if err != nil {
 		return
 	}
-	defer remote.Close()
+	defer func() {
+		_ = remote.Close()
+	}()
 
 	_, err = io.Copy(remote, readerFunc(func(p []byte) (int, error) {
 
@@ -568,19 +578,25 @@ func Download(ctx context.Context, c *goph.Client, remotePath string, localPath 
 	if err != nil {
 		return
 	}
-	defer ftp.Close()
+	defer func() {
+		_ = ftp.Close()
+	}()
 
 	remote, err := ftp.Open(remotePath)
 	if err != nil {
 		return
 	}
-	defer remote.Close()
+	defer func() {
+		_ = remote.Close()
+	}()
 
 	local, err := os.Create(localPath)
 	if err != nil {
 		return
 	}
-	defer local.Close()
+	defer func() {
+		_ = local.Close()
+	}()
 
 	_, err = io.Copy(local, readerFunc(func(p []byte) (int, error) {
 

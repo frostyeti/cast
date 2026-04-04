@@ -49,7 +49,7 @@ func (pw *prefixedWriter) Write(p []byte) (n int, err error) {
 		if !found {
 			break
 		}
-		fmt.Fprintf(pw.writer, "[%s]: %s\n", pw.prefix, line)
+		_, _ = fmt.Fprintf(pw.writer, "[%s]: %s\n", pw.prefix, line)
 		pw.buf.Reset()
 		pw.buf.WriteString(rest)
 	}
@@ -62,7 +62,7 @@ func (pw *prefixedWriter) Flush() {
 	defer pw.mu.Unlock()
 
 	if pw.buf.Len() > 0 {
-		fmt.Fprintf(pw.writer, "[%s]: %s\n", pw.prefix, pw.buf.String())
+		_, _ = fmt.Fprintf(pw.writer, "[%s]: %s\n", pw.prefix, pw.buf.String())
 		pw.buf.Reset()
 	}
 }
@@ -351,7 +351,9 @@ func runSSHTarget(ctx context.Context, taskContext TaskContext, target HostInfo)
 		return err2
 	}
 
-	defer client.Close()
+	defer func() {
+		_ = client.Close()
+	}()
 
 	var sess *ssh.Session
 
@@ -360,14 +362,19 @@ func runSSHTarget(ctx context.Context, taskContext TaskContext, target HostInfo)
 		return err2
 	}
 
-	defer sess.Close()
+	defer func() {
+		_ = sess.Close()
+	}()
 
 	go func() {
 
 		if taskContext.Schema.Env != nil {
 			for _, k := range taskContext.Schema.Env.Keys() {
 				v := taskContext.Task.Env[k]
-				sess.Setenv(k, v)
+				if err := sess.Setenv(k, v); err != nil {
+					signal <- SshRun{Error: errors.New("Failed to set SSH environment variable: " + err.Error())}
+					return
+				}
 			}
 		}
 
@@ -403,7 +410,7 @@ func runSSHTarget(ctx context.Context, taskContext TaskContext, target HostInfo)
 			defer outputWg.Done()
 			scanner := bufio.NewScanner(stdoutPipe)
 			for scanner.Scan() {
-				stdoutWriter.Write([]byte(scanner.Text() + "\n"))
+				_, _ = stdoutWriter.Write([]byte(scanner.Text() + "\n"))
 			}
 			stdoutWriter.Flush()
 		}()
@@ -412,7 +419,7 @@ func runSSHTarget(ctx context.Context, taskContext TaskContext, target HostInfo)
 			defer outputWg.Done()
 			scanner := bufio.NewScanner(stderrPipe)
 			for scanner.Scan() {
-				stderrWriter.Write([]byte(scanner.Text() + "\n"))
+				_, _ = stderrWriter.Write([]byte(scanner.Text() + "\n"))
 			}
 			stderrWriter.Flush()
 		}()
@@ -434,7 +441,7 @@ func runSSHTarget(ctx context.Context, taskContext TaskContext, target HostInfo)
 
 	select {
 	case <-ctx.Done():
-		sess.Signal(ssh.SIGINT)
+		_ = sess.Signal(ssh.SIGINT)
 		return ctx.Err()
 	case result := <-signal:
 		return result.Error

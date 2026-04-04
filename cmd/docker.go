@@ -56,9 +56,11 @@ var dockerPurgeCmd = &cobra.Command{
 		}
 
 		if len(remaining) == 0 {
-			os.Remove(trackingFile)
+			_ = os.Remove(trackingFile)
 		} else {
-			os.WriteFile(trackingFile, []byte(strings.Join(remaining, "\n")+"\n"), 0644)
+			if err := os.WriteFile(trackingFile, []byte(strings.Join(remaining, "\n")+"\n"), 0o644); err != nil {
+				return err
+			}
 		}
 
 		return nil

@@ -37,7 +37,7 @@ var jobListCmd = &cobra.Command{
 		for _, jobName := range project.Schema.Jobs.Keys() {
 			job, _ := project.Schema.Jobs.Get(jobName)
 			desc := job.Desc
-			fmt.Fprintf(cmd.OutOrStdout(), "%*s  %s\n", -max, jobName, desc)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%*s  %s\n", -max, jobName, desc)
 		}
 
 		return nil

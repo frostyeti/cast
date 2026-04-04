@@ -232,8 +232,7 @@ func (e *Env) Get(key string) string {
 	if e == nil {
 		e = NewEnv()
 	}
-	val, _ := e.Map[key]
-	return val
+	return e.Map[key]
 }
 
 func (e *Env) Has(key string) bool {
@@ -375,8 +374,7 @@ func (e *Env) PrependPath(path string) error {
 	}
 
 	paths = append([]string{path}, paths...)
-	e.SetPath(strings.Join(paths, string(os.PathListSeparator)))
-	return nil
+	return e.SetPath(strings.Join(paths, string(os.PathListSeparator)))
 }
 
 func (e *Env) AppendPath(path string) error {
@@ -402,8 +400,7 @@ func (e *Env) AppendPath(path string) error {
 	}
 
 	paths = append(paths, path)
-	e.SetPath(strings.Join(paths, string(os.PathListSeparator)))
-	return nil
+	return e.SetPath(strings.Join(paths, string(os.PathListSeparator)))
 }
 
 func (e *Env) HasPath(path string) bool {

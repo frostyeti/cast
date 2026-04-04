@@ -62,7 +62,7 @@ func initDB() (*sql.DB, error) {
 	);
 	`
 	if _, err := db.Exec(schema); err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, err
 	}
 
@@ -108,7 +108,9 @@ func getRuns(db *sql.DB, projectID, targetType, targetID string) ([]Run, error) 
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		_ = rows.Close()
+	}()
 
 	var runs []Run
 	for rows.Next() {
@@ -141,7 +143,9 @@ func getActiveRunIDs(db *sql.DB, projectID, targetType string) (map[string]strin
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		_ = rows.Close()
+	}()
 
 	activeRuns := make(map[string]string)
 	for rows.Next() {

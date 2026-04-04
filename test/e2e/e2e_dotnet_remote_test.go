@@ -30,7 +30,9 @@ func TestE2E_DotnetRemoteTasks(t *testing.T) {
 
 	for _, task := range tasks {
 		repoPath := filepath.Join(tmpDir, "repo-"+task)
-		os.MkdirAll(repoPath, 0755)
+		if err := os.MkdirAll(repoPath, 0o755); err != nil {
+			t.Fatalf("failed to create repo path: %v", err)
+		}
 		copyCmd := exec.Command("cp", "-r", filepath.Join(fixtureGitRepo, task)+"/.", repoPath)
 		if output, err := copyCmd.CombinedOutput(); err != nil {
 			t.Fatalf("failed to copy fixture %s: %v\n%s", task, err, string(output))
@@ -47,7 +49,9 @@ func TestE2E_DotnetRemoteTasks(t *testing.T) {
 
 	// 3. Create the project that uses the remote task
 	projectDir := filepath.Join(tmpDir, "project")
-	os.MkdirAll(projectDir, 0755)
+	if err := os.MkdirAll(projectDir, 0o755); err != nil {
+		t.Fatalf("failed to create project dir: %v", err)
+	}
 
 	// Create a dummy dotnet project
 	t.Log("Creating dummy .NET project...")

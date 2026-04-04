@@ -105,7 +105,9 @@ main().catch(err => {
 	if err != nil {
 		return res.Fail(errors.Newf("Failed to write deno wrapper script: %v", err))
 	}
-	defer os.Remove(wrapperPath)
+	defer func() {
+		_ = os.Remove(wrapperPath)
+	}()
 
 	args := []string{"run", "-A"}
 	exeName := "deno"

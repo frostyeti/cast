@@ -13,8 +13,8 @@ func runCmdWithContext(ctx TaskContext, cmd *exec.Cmd) (*exec.Result, error) {
 	cmd.WithStderr(ctx.Stderr)
 
 	var out exec.Result
-	out.FileName = cmd.Cmd.Path
-	out.Args = cmd.Cmd.Args
+	out.FileName = cmd.Path
+	out.Args = cmd.Args
 	out.StartedAt = time.Now().UTC()
 
 	err := cmd.Start()
@@ -26,7 +26,7 @@ func runCmdWithContext(ctx TaskContext, cmd *exec.Cmd) (*exec.Result, error) {
 
 	err = cmd.Wait()
 	out.EndedAt = time.Now().UTC()
-	out.Code = cmd.Cmd.ProcessState.ExitCode()
+	out.Code = cmd.ProcessState.ExitCode()
 
 	if err != nil {
 		return &out, err

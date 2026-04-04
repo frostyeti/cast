@@ -125,7 +125,9 @@ func trackDockerImage(image string) {
 		return
 	}
 	castDir := filepath.Join(dataDir, "cast")
-	os.MkdirAll(castDir, 0755)
+	if err := os.MkdirAll(castDir, 0o755); err != nil {
+		return
+	}
 
 	trackingFile := filepath.Join(castDir, "docker_images.txt")
 
@@ -145,8 +147,8 @@ func trackDockerImage(image string) {
 	if !found {
 		f, err := os.OpenFile(trackingFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err == nil {
-			f.WriteString(image + "\n")
-			f.Close()
+			_, _ = f.WriteString(image + "\n")
+			_ = f.Close()
 		}
 	}
 }

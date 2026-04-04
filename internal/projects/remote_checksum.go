@@ -71,21 +71,36 @@ func VerifyChecksumAndRefresh(p *Project) bool {
 
 	if !matches {
 		// Clear local cache for remote tasks if checksum doesn't match
-		os.RemoveAll(filepath.Join(cacheDir, "tasks"))
+		if err := os.RemoveAll(filepath.Join(cacheDir, "tasks")); err != nil {
+			projectChecksumCache[p.Dir] = false
+			return false
+		}
 		// Clear local cache for remote modules if checksum doesn't match
-		os.RemoveAll(filepath.Join(cacheDir, "modules"))
+		if err := os.RemoveAll(filepath.Join(cacheDir, "modules")); err != nil {
+			projectChecksumCache[p.Dir] = false
+			return false
+		}
 
 		// Write new state - only create cache dir if it doesn't exist
 		if _, err := os.Stat(cacheDir); os.IsNotExist(err) {
-			os.MkdirAll(cacheDir, 0755)
+			if err := os.MkdirAll(cacheDir, 0o755); err != nil {
+				projectChecksumCache[p.Dir] = false
+				return false
+			}
 			// Create .gitignore to ignore cached files
 			gitignorePath := filepath.Join(cacheDir, ".gitignore")
-			os.WriteFile(gitignorePath, []byte("*\n"), 0644)
+			if err := os.WriteFile(gitignorePath, []byte("*\n"), 0o644); err != nil {
+				projectChecksumCache[p.Dir] = false
+				return false
+			}
 		}
 		state.Checksum = hashStr
 		state.Files[relFile] = hashStr
 		if bytes, err := json.MarshalIndent(state, "", "  "); err == nil {
-			os.WriteFile(stateFile, bytes, 0644)
+			if err := os.WriteFile(stateFile, bytes, 0o644); err != nil {
+				projectChecksumCache[p.Dir] = false
+				return false
+			}
 		}
 	}
 

@@ -51,7 +51,7 @@ jobs:
 	// Ensure server is killed after test
 	defer func() {
 		if runCmd.Process != nil {
-			runCmd.Process.Kill()
+			_ = runCmd.Process.Kill()
 		}
 	}()
 
@@ -65,7 +65,7 @@ jobs:
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("expected 200 OK for /health, got %d", resp.StatusCode)
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 
 	// Test 2: Get projects
 	resp, err = http.Get("http://127.0.0.1:8082/api/v1/projects")
@@ -76,8 +76,10 @@ jobs:
 		t.Errorf("expected 200 OK for /projects, got %d", resp.StatusCode)
 	}
 	var projects []map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&projects)
-	resp.Body.Close()
+	if err := json.NewDecoder(resp.Body).Decode(&projects); err != nil {
+		t.Fatalf("failed to decode /projects response: %v", err)
+	}
+	_ = resp.Body.Close()
 
 	found := false
 	for _, p := range projects {
@@ -98,7 +100,7 @@ jobs:
 	if resp.StatusCode != http.StatusAccepted {
 		t.Errorf("expected 202 Accepted for trigger task, got %d", resp.StatusCode)
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 
 	// Test 4: Trigger job
 	resp, err = http.Post("http://127.0.0.1:8082/api/v1/projects/web-e2e/jobs/default/trigger", "application/json", nil)
@@ -108,5 +110,5 @@ jobs:
 	if resp.StatusCode != http.StatusAccepted {
 		t.Errorf("expected 202 Accepted for trigger job, got %d", resp.StatusCode)
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 }

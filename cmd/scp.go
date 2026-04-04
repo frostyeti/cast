@@ -129,7 +129,7 @@ var scpCmd = &cobra.Command{
 				err = client.Upload(src, dest)
 			}
 
-			client.Close()
+			_ = client.Close()
 
 			if err != nil {
 				fmt.Printf("Failed for %s: %v\n", hostAlias, err)

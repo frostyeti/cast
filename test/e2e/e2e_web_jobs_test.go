@@ -54,7 +54,7 @@ jobs:
 	// Ensure server is killed after test
 	defer func() {
 		if runCmd.Process != nil {
-			runCmd.Process.Kill()
+			_ = runCmd.Process.Kill()
 		}
 	}()
 
@@ -68,7 +68,7 @@ jobs:
 	if resp.StatusCode != http.StatusAccepted {
 		t.Errorf("expected 202 Accepted for trigger job, got %d", resp.StatusCode)
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 
 	waitForFile(t, filepath.Join(tmpDir, "step1.txt"), 10_000_000_000)
 	waitForFile(t, filepath.Join(tmpDir, "step2.txt"), 10_000_000_000)
@@ -83,7 +83,7 @@ jobs:
 	}
 
 	body, _ := io.ReadAll(resp.Body)
-	resp.Body.Close()
+	_ = resp.Body.Close()
 
 	var runs []map[string]interface{}
 	if err := json.Unmarshal(body, &runs); err != nil {

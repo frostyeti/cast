@@ -24,12 +24,13 @@ var taskListCmd = &cobra.Command{
 		invokedFromTaskNamespace := false
 		invokedViaListShortcut := false
 		if len(args) > 1 {
-			if args[1] == "task" || args[1] == "tasks" {
+			switch args[1] {
+			case "task", "tasks":
 				invokedFromTaskNamespace = true
 				if len(args) > 2 && (args[2] == "list" || args[2] == "ls") {
 					invokedViaListShortcut = true
 				}
-			} else if args[1] == "list" || args[1] == "ls" {
+			case "list", "ls":
 				invokedViaListShortcut = true
 			}
 		}
@@ -101,9 +102,6 @@ var taskListCmd = &cobra.Command{
 		}
 
 		targetProvided := len(targets) > 0
-		if len(targets) == 0 {
-			targets = append(targets, "default")
-		}
 
 		err := flags.Parse(cmdArgs)
 		if err != nil {
@@ -180,7 +178,9 @@ var taskListCmd = &cobra.Command{
 			}
 			project = workspaceProject.Project
 			projectFile = workspaceProject.Path
-			project.LoadFromYaml(workspaceProject.Path)
+			if err := project.LoadFromYaml(workspaceProject.Path); err != nil {
+				return errors.Newf("failed to load project file %s: %w", workspaceProject.Path, err)
+			}
 		}
 
 		if strings.TrimSpace(contextName) == "" {
@@ -242,7 +242,7 @@ var taskListCmd = &cobra.Command{
 			if task.Desc != nil {
 				desc = *task.Desc
 			}
-			cmd.OutOrStdout().Write([]byte(fmt.Sprintf("%-"+fmt.Sprintf("%d", max)+"s  %s\n", taskName, desc)))
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%-*s  %s\n", max, taskName, desc)
 		}
 
 		return nil

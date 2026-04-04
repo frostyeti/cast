@@ -106,14 +106,18 @@ func (s *Server) handleSSHStream(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("failed to connect to ssh: %v", err), http.StatusInternalServerError)
 		return
 	}
-	defer client.Close()
+	defer func() {
+		_ = client.Close()
+	}()
 
 	session, err := client.NewSession()
 	if err != nil {
 		http.Error(w, fmt.Sprintf("failed to create ssh session: %v", err), http.StatusInternalServerError)
 		return
 	}
-	defer session.Close()
+	defer func() {
+		_ = session.Close()
+	}()
 
 	// Request PTY
 	if err := session.RequestPty("xterm", 24, 80, ssh.TerminalModes{
@@ -154,7 +158,9 @@ func (s *Server) handleSSHStream(w http.ResponseWriter, r *http.Request) {
 		log.Printf("failed to upgrade to websocket: %v", err)
 		return
 	}
-	defer ws.Close()
+	defer func() {
+		_ = ws.Close()
+	}()
 
 	// Bridge WS to SSH Stdin
 	go func() {
@@ -163,7 +169,7 @@ func (s *Server) handleSSHStream(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				break
 			}
-			stdin.Write(msg)
+			_, _ = stdin.Write(msg)
 		}
 	}()
 
@@ -173,7 +179,7 @@ func (s *Server) handleSSHStream(w http.ResponseWriter, r *http.Request) {
 		for {
 			n, err := stdout.Read(buf)
 			if n > 0 {
-				ws.WriteMessage(websocket.TextMessage, buf[:n])
+				_ = ws.WriteMessage(websocket.TextMessage, buf[:n])
 			}
 			if err != nil {
 				break
@@ -186,7 +192,7 @@ func (s *Server) handleSSHStream(w http.ResponseWriter, r *http.Request) {
 		for {
 			n, err := stderr.Read(buf)
 			if n > 0 {
-				ws.WriteMessage(websocket.TextMessage, buf[:n])
+				_ = ws.WriteMessage(websocket.TextMessage, buf[:n])
 			}
 			if err != nil {
 				break
@@ -195,5 +201,5 @@ func (s *Server) handleSSHStream(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	// Wait for session to finish
-	session.Wait()
+	_ = session.Wait()
 }

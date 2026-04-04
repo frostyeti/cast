@@ -35,28 +35,28 @@ func (e Err) Format(s fmt.State, verb rune) {
 	switch verb {
 	case 'W':
 		if e.cause != nil {
-			fmt.Fprintf(s, "%v", e.cause)
+			_, _ = fmt.Fprintf(s, "%v", e.cause)
 		}
 	case 'w':
 		if e.cause != nil {
-			fmt.Fprintf(s, "%+v", e.cause)
+			_, _ = fmt.Fprintf(s, "%+v", e.cause)
 		}
 	case 'v':
 		if s.Flag('+') {
-			fmt.Fprintf(s, "%s\n", e.Message)
+			_, _ = fmt.Fprintf(s, "%s\n", e.Message)
 			if e.details != "" {
-				fmt.Fprintf(s, "Details: %s\n", e.details)
+				_, _ = fmt.Fprintf(s, "Details: %s\n", e.details)
 			}
 			if e.cause != nil {
-				fmt.Fprintf(s, "Cause: %+v\n", e.cause)
+				_, _ = fmt.Fprintf(s, "Cause: %+v\n", e.cause)
 			}
 			return
 		}
 		fallthrough
 	case 's':
-		fmt.Fprint(s, e.Message)
+		_, _ = fmt.Fprint(s, e.Message)
 	case 'q':
-		fmt.Fprintf(s, "%q", e.Message)
+		_, _ = fmt.Fprintf(s, "%q", e.Message)
 	}
 }
 

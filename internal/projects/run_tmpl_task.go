@@ -104,7 +104,7 @@ func runTpl(ctx TaskContext) *TaskResult {
 
 	for _, file := range files {
 		src := file
-		dest := file
+		dest := ""
 		if strings.ContainsRune(file, ':') {
 			parts := strings.SplitN(file, ":", 2)
 			src = parts[0]
@@ -155,6 +155,7 @@ func runTpl(ctx TaskContext) *TaskResult {
 				if err != nil {
 					return res.Fail(errors.New("Failed to write output file: " + err.Error()))
 				}
+				continue
 			}
 		}
 
@@ -169,10 +170,12 @@ func runTpl(ctx TaskContext) *TaskResult {
 				return res.Fail(errors.New("Failed to create output file: " + err.Error()))
 			}
 
-			defer out.Close()
-
 			if err := tmp.Execute(out, data); err != nil {
+				_ = out.Close()
 				return res.Fail(errors.New("Failed to execute template: " + err.Error()))
+			}
+			if err := out.Close(); err != nil {
+				return res.Fail(errors.New("Failed to close output file: " + err.Error()))
 			}
 		}
 	}

@@ -564,10 +564,7 @@ func fetchRemoteTaskWithOptions(p *Project, uses string, trustedSources []string
 	stdoutWriter := remoteTaskStdoutWriter(opts.Stdout)
 
 	// First, check trusted sources
-	isTrusted := false
-	if len(trustedSources) == 0 || strings.HasPrefix(uses, "./") || strings.HasPrefix(uses, "../") || filepath.IsAbs(uses) {
-		isTrusted = true
-	}
+	isTrusted := len(trustedSources) == 0 || strings.HasPrefix(uses, "./") || strings.HasPrefix(uses, "../") || filepath.IsAbs(uses)
 
 	for _, pattern := range trustedSources {
 		match, _ := filepath.Match(pattern, uses)
@@ -663,7 +660,7 @@ func fetchRemoteTaskWithOptions(p *Project, uses string, trustedSources []string
 				return "", err
 			}
 
-			fmt.Fprintf(stdoutWriter, "Fetching task: %s\n", uses)
+			_, _ = fmt.Fprintf(stdoutWriter, "Fetching task: %s\n", uses)
 
 			if layout.subPath != "" {
 				err = cloneRemoteTaskRepositorySparse(repoURL, resolvedVersion, cloneMode, taskDir, layout.subPath, stdoutWriter)
@@ -674,7 +671,7 @@ func fetchRemoteTaskWithOptions(p *Project, uses string, trustedSources []string
 				return "", err
 			}
 
-			fmt.Fprintln(stdoutWriter)
+			_, _ = fmt.Fprintln(stdoutWriter)
 		}
 
 		entryFile := layout.entryDir

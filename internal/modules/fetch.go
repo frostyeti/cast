@@ -19,7 +19,9 @@ import (
 func FetchModule(projectDir string, uri string) (string, error) {
 	// Create cache directory .cast/cache/modules
 	modulesDir := filepath.Join(projectDir, ".cast", "cache", "modules")
-	os.MkdirAll(modulesDir, 0755)
+	if err := os.MkdirAll(modulesDir, 0o755); err != nil {
+		return "", err
+	}
 
 	// Key directory by hash of URI to ensure unique version keys
 	hash := sha256.Sum256([]byte(uri))
@@ -88,19 +90,25 @@ func fetchTarball(uri, targetDir string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return errors.Newf("failed to download %s: status %d", uri, resp.StatusCode)
 	}
 
-	os.MkdirAll(targetDir, 0755)
+	if err := os.MkdirAll(targetDir, 0o755); err != nil {
+		return err
+	}
 
 	gzr, err := gzip.NewReader(resp.Body)
 	if err != nil {
 		return err
 	}
-	defer gzr.Close()
+	defer func() {
+		_ = gzr.Close()
+	}()
 
 	tr := tar.NewReader(gzr)
 
@@ -128,17 +136,23 @@ func fetchTarball(uri, targetDir string) error {
 				return err
 			}
 		case tar.TypeReg:
-			os.MkdirAll(filepath.Dir(targetPath), 0755)
+			if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
+				return err
+			}
 			outFile, err := os.Create(targetPath)
 			if err != nil {
 				return err
 			}
 			if _, err := io.Copy(outFile, tr); err != nil {
-				outFile.Close()
+				_ = outFile.Close()
 				return err
 			}
-			outFile.Close()
-			os.Chmod(targetPath, os.FileMode(header.Mode))
+			if err := outFile.Close(); err != nil {
+				return err
+			}
+			if err := os.Chmod(targetPath, os.FileMode(header.Mode)); err != nil {
+				return err
+			}
 		}
 	}
 

@@ -60,14 +60,18 @@ func TestServer_StreamEndpoint(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to trigger job: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != http.StatusAccepted {
 		t.Fatalf("Expected status 202, got %d", resp.StatusCode)
 	}
 
 	var triggerResp map[string]string
-	json.NewDecoder(resp.Body).Decode(&triggerResp)
+	if err := json.NewDecoder(resp.Body).Decode(&triggerResp); err != nil {
+		t.Fatalf("Failed to decode trigger response: %v", err)
+	}
 	runID := triggerResp["runId"]
 
 	if runID == "" {
@@ -89,7 +93,9 @@ func TestServer_StreamEndpoint(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to connect to stream: %v", err)
 	}
-	defer streamResp.Body.Close()
+	defer func() {
+		_ = streamResp.Body.Close()
+	}()
 
 	if streamResp.StatusCode != http.StatusOK {
 		t.Fatalf("Expected stream status 200, got %d", streamResp.StatusCode)

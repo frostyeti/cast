@@ -44,7 +44,9 @@ func TestServer_SSHStreamEndpoint_Errors(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to make request: %v", err)
 	}
-	defer resp1.Body.Close()
+	defer func() {
+		_ = resp1.Body.Close()
+	}()
 	if resp1.StatusCode != http.StatusNotFound {
 		t.Errorf("Expected 404, got %d", resp1.StatusCode)
 	}
@@ -55,7 +57,9 @@ func TestServer_SSHStreamEndpoint_Errors(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to make request: %v", err)
 	}
-	defer resp2.Body.Close()
+	defer func() {
+		_ = resp2.Body.Close()
+	}()
 	if resp2.StatusCode != http.StatusNotFound {
 		t.Errorf("Expected 404, got %d", resp2.StatusCode)
 	}
@@ -66,7 +70,9 @@ func TestServer_SSHStreamEndpoint_Errors(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to make request: %v", err)
 	}
-	defer resp3.Body.Close()
+	defer func() {
+		_ = resp3.Body.Close()
+	}()
 	if resp3.StatusCode != http.StatusInternalServerError {
 		t.Errorf("Expected 500, got %d", resp3.StatusCode)
 	}
