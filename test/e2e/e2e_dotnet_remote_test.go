@@ -53,6 +53,8 @@ func TestE2E_DotnetRemoteTasks(t *testing.T) {
 		t.Fatalf("failed to create project dir: %v", err)
 	}
 
+	ciMode := os.Getenv("CI") == "true"
+
 	// Create a dummy dotnet project
 	t.Log("Creating dummy .NET project...")
 	runCmd := exec.Command("dotnet", "new", "console", "-n", "DemoApp")
@@ -142,8 +144,12 @@ tasks:
 		t.Fatalf("failed to run cast pack task: %v\n%s", err, string(output))
 	}
 	outStr = string(output)
-	if !strings.Contains(outStr, "Running: dotnet pack DemoApp -c Release -o ./nupkgs") {
-		t.Errorf("expected pack output to contain 'Running: dotnet pack DemoApp -c Release -o ./nupkgs', got: %s", outStr)
+	expectedPack := "Running: dotnet pack DemoApp -c Release -o ./nupkgs"
+	if ciMode {
+		expectedPack = "Running: dotnet pack DemoApp -c Release --no-restore -o ./nupkgs"
+	}
+	if !strings.Contains(outStr, expectedPack) {
+		t.Errorf("expected pack output to contain %q, got: %s", expectedPack, outStr)
 	}
 
 	t.Log("Running dotnet publish task...")
@@ -154,8 +160,12 @@ tasks:
 		t.Fatalf("failed to run cast publish task: %v\n%s", err, string(output))
 	}
 	outStr = string(output)
-	if !strings.Contains(outStr, "Running: dotnet publish DemoApp -c Release -o ./publish") {
-		t.Errorf("expected publish output to contain 'Running: dotnet publish DemoApp -c Release -o ./publish', got: %s", outStr)
+	expectedPublish := "Running: dotnet publish DemoApp -c Release -o ./publish"
+	if ciMode {
+		expectedPublish = "Running: dotnet publish DemoApp -c Release --no-restore -o ./publish"
+	}
+	if !strings.Contains(outStr, expectedPublish) {
+		t.Errorf("expected publish output to contain %q, got: %s", expectedPublish, outStr)
 	}
 
 	t.Log("Running dotnet clean task...")
