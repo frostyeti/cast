@@ -72,34 +72,7 @@ func runDenoWrapper(ctx TaskContext, modulePath string, jsRuntime string) *TaskR
 	}
 
 	// We pass args as stringified JSON to process.env or just in the wrapper script.
-	wrapperContent := fmt.Sprintf(`
-import process from "node:process";
-import * as mod from "%s";
-
-globalThis["inputs"] = %s;
-
-async function main() {
-	try {
-		if (typeof mod.setup === 'function') {
-			await mod.setup();
-		}
-		if (typeof mod.run === 'function') {
-			await mod.run();
-		} else if (typeof mod.default === 'function') {
-			await mod.default();
-		}
-	} finally {
-		if (typeof mod.teardown === 'function') {
-			await mod.teardown();
-		}
-	}
-}
-
-main().catch(err => {
-	console.error(err);
-	process.exit(1);
-});
-`, modulePath, string(withJSON))
+	wrapperContent := buildDenoModuleWrapper(modulePath, string(withJSON), ctx.Task.Name)
 
 	err := os.WriteFile(wrapperPath, []byte(wrapperContent), 0644)
 	if err != nil {
@@ -130,10 +103,16 @@ main().catch(err => {
 
 	o, err := runCmdWithContext(ctx, cmd)
 	if err != nil {
+		if o != nil && o.Code == denoLingeringResourceExitCode {
+			return res.Fail(newDenoLingeringResourceError(ctx.Task.Id))
+		}
 		return res.Fail(err)
 	}
 
 	if o.Code != 0 {
+		if o.Code == denoLingeringResourceExitCode {
+			return res.Fail(newDenoLingeringResourceError(ctx.Task.Id))
+		}
 		return res.Fail(errors.Newf("Deno task failed with exit code %d", o.Code))
 	}
 

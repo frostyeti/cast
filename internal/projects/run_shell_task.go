@@ -14,7 +14,6 @@ import (
 	"github.com/frostyeti/cast/internal/paths"
 	"github.com/frostyeti/cast/internal/scriptx/bash"
 	"github.com/frostyeti/cast/internal/scriptx/bun"
-	"github.com/frostyeti/cast/internal/scriptx/deno"
 	"github.com/frostyeti/cast/internal/scriptx/dotnet"
 	"github.com/frostyeti/cast/internal/scriptx/golang"
 	"github.com/frostyeti/cast/internal/scriptx/node"
@@ -59,6 +58,7 @@ func runShell(ctx TaskContext) *TaskResult {
 	}
 
 	var cmd *exec.Cmd
+	cleanup := func() {}
 
 	run := ctx.Task.Run
 
@@ -132,7 +132,11 @@ func runShell(ctx TaskContext) *TaskResult {
 		cmd = dotnet.ScriptContext(ctx.Context, run, splat...)
 
 	case "deno":
-		cmd = deno.ScriptContext(ctx.Context, run, splat...)
+		var err error
+		cmd, cleanup, err = createDenoTaskCmd(ctx, run, splat)
+		if err != nil {
+			return res.Fail(err)
+		}
 
 	case "node":
 		cmd = node.ScriptContext(ctx.Context, run, splat...)
@@ -158,14 +162,21 @@ func runShell(ctx TaskContext) *TaskResult {
 	if len(ctx.Task.Env) > 0 {
 		cmd.WithEnvMap(ctx.Task.Env)
 	}
+	defer cleanup()
 
 	res.Start()
 	o, err := runCmdWithContext(ctx, cmd)
 	if err != nil {
+		if ctx.Task.Uses == "deno" && o != nil && o.Code == denoLingeringResourceExitCode {
+			return res.Fail(newDenoLingeringResourceError(ctx.Task.Id))
+		}
 		return res.Fail(err)
 	}
 
 	if o.Code != 0 {
+		if ctx.Task.Uses == "deno" && o.Code == denoLingeringResourceExitCode {
+			return res.Fail(newDenoLingeringResourceError(ctx.Task.Id))
+		}
 		err := errors.New("Task " + ctx.Task.Id + " failed with exit code " + strconv.Itoa(o.Code))
 		return res.Fail(err)
 	}
