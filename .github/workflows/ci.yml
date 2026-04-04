@@ -12,10 +12,18 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v6
 
+      - name: Setup mise
+        uses: jdx/mise-action@v4
+
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
           go-version: '1.26'
+
+      - name: Add mise tool shims to PATH
+        run: |
+          echo "$(dirname "$(mise which deno)")" >> "$GITHUB_PATH"
+          echo "$(dirname "$(mise which bun)")" >> "$GITHUB_PATH"
 
       - name: Setup environment
         run: |

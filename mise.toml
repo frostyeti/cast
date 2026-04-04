@@ -1,5 +1,6 @@
 [tools]
 go = '1.26.1'
+bun = '1.2.22'
 deno = '2.7.4'
 golangci-lint = '2.11.4'
 
