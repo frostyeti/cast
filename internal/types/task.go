@@ -176,17 +176,11 @@ func (t *Task) UnmarshalYAML(value *yaml.Node) error {
 				t.Args = append(t.Args, item.Value)
 			}
 		case "needs", "deps", "dependencies":
-			if valueNode.Kind != yaml.SequenceNode {
-				return errors.NewYamlError(valueNode, "expected yaml sequence for 'needs' field")
+			var needs Needs
+			if err := valueNode.Decode(&needs); err != nil {
+				return err
 			}
-			t.Needs = Needs{}
-			for _, item := range valueNode.Content {
-				var need Need
-				if err := item.Decode(&need); err != nil {
-					return err
-				}
-				t.Needs = append(t.Needs, need)
-			}
+			t.Needs = needs
 		case "with", "input", "inputs":
 			with := NewWith()
 			if err := valueNode.Decode(with); err != nil {

@@ -110,13 +110,79 @@ var selfConfigRmCmd = &cobra.Command{
 	},
 }
 
+var selfContextCmd = &cobra.Command{
+	Use:   "context",
+	Short: "Manage castfile context values",
+}
+
+var selfContextUseCmd = &cobra.Command{
+	Use:   "use <name>",
+	Short: "Set the active castfile context",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		projectFile, err := resolveProjectFileFromFlagOrCwd(cmd)
+		if err != nil {
+			return err
+		}
+		return setProjectConfigValue(projectFile, "context", args[0])
+	},
+}
+
+var selfContextGetCmd = &cobra.Command{
+	Use:   "get",
+	Short: "Get the active castfile context",
+	Args:  cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		projectFile, err := resolveProjectFileFromFlagOrCwd(cmd)
+		if err != nil {
+			return err
+		}
+		value, found, err := getProjectConfigValue(projectFile, "context")
+		if err != nil {
+			return err
+		}
+		if !found {
+			return errors.New("config key not found: context")
+		}
+		_, _ = fmt.Fprintln(cmd.OutOrStdout(), value)
+		return nil
+	},
+}
+
+var selfContextShowCmd = &cobra.Command{
+	Use:   "show",
+	Short: "Show the active castfile context",
+	Args:  cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return selfContextGetCmd.RunE(cmd, args)
+	},
+}
+
+var selfContextRmCmd = &cobra.Command{
+	Use:   "rm",
+	Short: "Remove the active castfile context",
+	Args:  cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		projectFile, err := resolveProjectFileFromFlagOrCwd(cmd)
+		if err != nil {
+			return err
+		}
+		return removeProjectConfigValue(projectFile, "context")
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(selfCmd)
 	selfCmd.AddCommand(selfUpgradeCmd)
 	selfCmd.AddCommand(selfConfigCmd)
+	selfCmd.AddCommand(selfContextCmd)
 	selfConfigCmd.AddCommand(selfConfigSetCmd)
 	selfConfigCmd.AddCommand(selfConfigGetCmd)
 	selfConfigCmd.AddCommand(selfConfigRmCmd)
+	selfContextCmd.AddCommand(selfContextUseCmd)
+	selfContextCmd.AddCommand(selfContextGetCmd)
+	selfContextCmd.AddCommand(selfContextShowCmd)
+	selfContextCmd.AddCommand(selfContextRmCmd)
 
 	project := env.Get("CAST_PROJECT")
 	context := env.Get("CAST_CONTEXT")

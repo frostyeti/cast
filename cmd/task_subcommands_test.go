@@ -26,6 +26,9 @@ func TestRootHelpIncludesTaskCommand(t *testing.T) {
 	if !strings.Contains(out, "\n  config      Manage castfile config values\n") {
 		t.Fatalf("expected config command in root help output, got: %s", out)
 	}
+	if !strings.Contains(out, "\n  context     Manage castfile context values\n") {
+		t.Fatalf("expected context command in root help output, got: %s", out)
+	}
 }
 
 func TestTaskHelpIncludesSubcommands(t *testing.T) {

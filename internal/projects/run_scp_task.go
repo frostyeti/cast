@@ -5,7 +5,6 @@ import (
 	stderrors "errors"
 	"fmt"
 	"io"
-	"net"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -18,7 +17,6 @@ import (
 	"github.com/frostyeti/go/env"
 	goph "github.com/melbahja/goph"
 	"github.com/pkg/sftp"
-	"golang.org/x/crypto/ssh"
 )
 
 type scpJobResult struct {
@@ -378,60 +376,14 @@ func runSCPTargetsParallel(ctx context.Context, direction string, taskContext Ta
 }
 
 func runScpTarget(ctx context.Context, direction string, taskContext TaskContext, target HostInfo, files []string) error {
-	var auth goph.Auth
-	var err error
-	identity := ""
-	password := ""
-	if target.IdentityFile != "" {
-		identity = target.IdentityFile
-	}
-	if target.Password != "" {
-		password = target.Password
-		if password != "" {
-			p, ok := taskContext.Task.Env[password]
-			if ok {
-				password = p
-			}
-		}
-	}
-
-	if identity == "" && password != "" {
-		auth = goph.Password(password)
-	} else if identity != "" {
-		auth, err = goph.Key(identity, password)
-	} else if goph.HasAgent() {
-		auth, err = goph.UseAgent()
-	} else {
-		return errors.New("No authentication method provided for SSH task")
-	}
-
+	authCfg, err := projectSSHAuthConfig(taskContext.Project, target, "")
 	if err != nil {
-		return errors.New("Failed to create SSH authentication: " + err.Error())
+		return err
 	}
 
-	port := uint(22)
-	if target.Port > 0 {
-		port = target.Port
-	}
-	user := ""
-	if target.User != "" {
-		user = target.User
-	}
-
-	client, err := goph.NewConn(&goph.Config{
-		User: user,
-		Addr: target.Host,
-		Port: port,
-		Auth: auth,
-		Callback: func(host string, remote net.Addr, key ssh.PublicKey) error {
-			return nil
-		},
-	})
-
+	client, _, err := newSSHClient(authCfg)
 	if err != nil {
-		err2 := errors.New("Failed to connect to SSH target " + target.Host + ": " + err.Error())
-		err2 = errors.WithCause(err2, err)
-		return err2
+		return err
 	}
 
 	defer func() {

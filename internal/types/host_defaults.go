@@ -8,13 +8,13 @@ import (
 )
 
 // HostDefaults defines reusable host connection defaults.
-// Tags are stored in YAML as groups for backward compatibility.
 type HostDefaults struct {
 	Port         *uint    `yaml:"port,omitempty" json:"port,omitempty"`
 	User         *string  `yaml:"user,omitempty" json:"user,omitempty"`
 	IdentityFile *string  `yaml:"identity,omitempty" json:"identity,omitempty"`
 	Password     *string  `yaml:"password,omitempty" json:"password,omitempty"`
-	Tags         []string `yaml:"groups,omitempty" json:"tags,omitempty"`
+	Agent        *bool    `yaml:"agent,omitempty" json:"agent,omitempty"`
+	Tags         []string `yaml:"tags,omitempty" json:"tags,omitempty"`
 	Meta         *Meta    `yaml:"meta,omitempty" json:"meta,omitempty"`
 	OS           *OsInfo  `yaml:"os,omitempty" json:"os,omitempty"`
 }
@@ -62,7 +62,7 @@ func (hd *HostDefaults) UnmarshalYAML(value *yaml.Node) error {
 			}
 			password := valueNode.Value
 			hd.Password = &password
-		case "tags":
+		case "tags", "groups":
 			if valueNode.Kind != yaml.SequenceNode {
 				return errors.YamlErrorf(valueNode, "expected yaml sequence for 'tags' field")
 			}
@@ -74,6 +74,15 @@ func (hd *HostDefaults) UnmarshalYAML(value *yaml.Node) error {
 				tags = append(tags, item.Value)
 			}
 			hd.Tags = tags
+		case "agent":
+			if valueNode.Kind != yaml.ScalarNode {
+				return errors.YamlErrorf(valueNode, "expected yaml scalar for 'agent' field")
+			}
+			var agent bool
+			if err := valueNode.Decode(&agent); err != nil {
+				return errors.YamlErrorf(valueNode, "expected yaml boolean for 'agent' field")
+			}
+			hd.Agent = &agent
 		case "meta":
 			if valueNode.Kind != yaml.MappingNode {
 				return errors.YamlErrorf(valueNode, "expected yaml mapping for 'meta' field")

@@ -10,6 +10,7 @@ import (
 	"github.com/frostyeti/cast/internal/errors"
 	"github.com/frostyeti/cast/internal/eval"
 	"github.com/frostyeti/cast/internal/id"
+	"github.com/frostyeti/cast/internal/logx"
 	"github.com/frostyeti/cast/internal/modules"
 	"github.com/frostyeti/cast/internal/paths"
 	"github.com/frostyeti/cast/internal/types"
@@ -54,9 +55,15 @@ func (p *Project) InitWorkspace() error {
 	p.Workspace = make(map[string]*ProjectInfo)
 
 	for alias, path := range p.Schema.Workspace.Aliases {
+		resolvedPath, err := resolveWorkspaceProjectPath(p.Dir, path)
+		if err != nil {
+			return errors.Newf("failed to resolve workspace alias %s: %w", alias, err)
+		}
 		proj := &ProjectInfo{}
 		proj.Alias = alias
-		proj.Path = path
+		proj.Path = resolvedPath
+		relPath, _ := filepath.Rel(p.Dir, resolvedPath)
+		proj.Rel = relPath
 		p.Workspace[alias] = proj
 	}
 
@@ -121,17 +128,22 @@ func (p *Project) InitWorkspace() error {
 		if !d.IsDir() {
 			name := d.Name()
 			if name == "castfile" || name == ".castfile" || name == "cast.yaml" || name == "cast.yml" {
+				if path == p.File {
+					return nil
+				}
 				proj := &ProjectInfo{}
 				proj.Path = path
-				dir := filepath.Dir(path)
-				basename := filepath.Base(dir)
+				projectDir := filepath.Dir(path)
+				basename := filepath.Base(projectDir)
 				proj.Alias = basename
-				relPath, _ := filepath.Rel(dir, path)
+				relPath, _ := filepath.Rel(p.Dir, path)
 				proj.Rel = relPath
 				_, ok := p.Workspace[proj.Alias]
 				if ok {
-					// write warning to stdout, use yelling style
-					_, _ = os.Stdout.WriteString("\x1b[31mWARNING: workspace alias " + proj.Alias + " already exists, skipping " + path + "\n\x1b[0m")
+					if logx.DebugEnabled() {
+						logx.Debugf("workspace alias %s already mapped; keeping %s and skipping %s", proj.Alias, p.Workspace[proj.Alias].Path, path)
+					}
+					return nil
 				}
 
 				p.Workspace[proj.Alias] = proj
@@ -177,6 +189,31 @@ func (p *Project) InitWorkspace() error {
 	}
 
 	return nil
+}
+
+func resolveWorkspaceProjectPath(baseDir, value string) (string, error) {
+	resolved, err := paths.ResolvePath(baseDir, value)
+	if err != nil {
+		return "", err
+	}
+
+	info, err := os.Stat(resolved)
+	if err != nil {
+		return "", err
+	}
+
+	if !info.IsDir() {
+		return resolved, nil
+	}
+
+	for _, name := range []string{"castfile", ".castfile", "castfile.yaml", "castfile.yml", "cast.yaml", "cast.yml"} {
+		candidate := filepath.Join(resolved, name)
+		if stat, err := os.Stat(candidate); err == nil && !stat.IsDir() {
+			return candidate, nil
+		}
+	}
+
+	return "", errors.Newf("no castfile found at workspace path %s", value)
 }
 
 func (p *Project) LoadFromYaml(file string) error {
@@ -327,6 +364,10 @@ func (p *Project) Init() error {
 					h.Password = d.Password
 				}
 
+				if h.Agent == nil && d.Agent != nil {
+					h.Agent = d.Agent
+				}
+
 				if h.OS == nil && d.OS != nil {
 					h.OS = d.OS
 				} else if h.OS != nil && d.OS != nil {
@@ -375,32 +416,16 @@ func (p *Project) Init() error {
 				h.Host = v
 			}
 
-			if h.Password != nil && strings.ContainsRune(*h.Password, '{') {
-				v, err := eval.EvalAsString(*h.Password, scope)
+			if h.Password != nil {
+				v, err := resolveSSHSecretLikeValue(*h.Password, scope, p.Env.Get, substitution, false)
 				if err != nil {
 					return err
 				}
 				*h.Password = v
 			}
 
-			if h.Password != nil && strings.ContainsRune(*h.Password, '$') {
-				v, err := env.Expand(*h.Password, env.WithGet(p.Env.Get), env.WithCommandSubstitution(substitution))
-				if err != nil {
-					return err
-				}
-				*h.Password = v
-			}
-
-			if h.IdentityFile != nil && strings.ContainsRune(*h.IdentityFile, '{') {
-				v, err := eval.EvalAsString(*h.IdentityFile, scope)
-				if err != nil {
-					return err
-				}
-				*h.IdentityFile = v
-			}
-
-			if h.IdentityFile != nil && strings.ContainsRune(*h.IdentityFile, '$') {
-				v, err := env.Expand(*h.IdentityFile, env.WithGet(p.Env.Get), env.WithCommandSubstitution(substitution))
+			if h.IdentityFile != nil {
+				v, err := resolveSSHSecretLikeValue(*h.IdentityFile, scope, p.Env.Get, substitution, true)
 				if err != nil {
 					return err
 				}
@@ -433,6 +458,11 @@ func (p *Project) Init() error {
 				identityFile = *h.IdentityFile
 			}
 
+			agent := false
+			if h.Agent != nil {
+				agent = *h.Agent
+			}
+
 			osInfo := types.OsInfo{}
 			if h.OS != nil {
 				osInfo = *h.OS
@@ -449,6 +479,7 @@ func (p *Project) Init() error {
 				User:         user,
 				Password:     password,
 				IdentityFile: identityFile,
+				Agent:        agent,
 				OS:           osInfo,
 				Meta:         *meta,
 				Tags:         h.Tags,

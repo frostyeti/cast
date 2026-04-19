@@ -2,15 +2,12 @@ package cmd
 
 import (
 	"fmt"
-	"net"
 	"os"
 
 	"github.com/frostyeti/cast/internal/errors"
 	"github.com/frostyeti/cast/internal/projects"
 	"github.com/frostyeti/cast/internal/types"
-	"github.com/melbahja/goph"
 	"github.com/spf13/cobra"
-	"golang.org/x/crypto/ssh"
 )
 
 var scpCmd = &cobra.Command{
@@ -64,36 +61,9 @@ var scpCmd = &cobra.Command{
 				continue
 			}
 
-			var auth goph.Auth
-			identity := ""
-			password := ""
-
-			if targetHost.IdentityFile != nil {
-				identity = *targetHost.IdentityFile
-			}
-			if targetHost.Password != nil {
-				password = *targetHost.Password
-			}
-
-			if identity == "" && password != "" {
-				auth = goph.Password(password)
-			} else if goph.HasAgent() {
-				auth, err = goph.UseAgent()
-			} else if identity != "" {
-				auth, err = goph.Key(identity, password)
-			} else {
-				fmt.Printf("Warning: no authentication method provided for SSH target %s\n", hostAlias)
-				continue
-			}
-
-			if err != nil {
-				fmt.Printf("Warning: failed to create SSH authentication for %s: %v\n", hostAlias, err)
-				continue
-			}
-
-			port := 22
+			port := uint(22)
 			if targetHost.Port != nil {
-				port = int(*targetHost.Port)
+				port = *targetHost.Port
 			}
 
 			user := os.Getenv("USER")
@@ -101,18 +71,35 @@ var scpCmd = &cobra.Command{
 				user = *targetHost.User
 			}
 
-			client, err := goph.NewConn(&goph.Config{
-				User: user,
-				Addr: targetHost.Host,
-				Port: uint(port),
-				Auth: auth,
-				Callback: func(host string, remote net.Addr, key ssh.PublicKey) error {
-					return nil
-				},
-			})
+			identity := ""
+			if targetHost.IdentityFile != nil {
+				identity = *targetHost.IdentityFile
+			}
+			password := ""
+			if targetHost.Password != nil {
+				password = *targetHost.Password
+			}
+			useAgent := false
+			if targetHost.Agent != nil {
+				useAgent = *targetHost.Agent
+			}
 
+			authCfg, err := projects.ResolveRootSSHAuthConfig(project, projects.HostInfo{
+				Host:         targetHost.Host,
+				Port:         port,
+				User:         user,
+				Password:     password,
+				IdentityFile: identity,
+				Agent:        useAgent,
+			}, "")
 			if err != nil {
-				fmt.Printf("Warning: failed to connect to SSH target %s: %v\n", targetHost.Host, err)
+				fmt.Printf("Warning: %v\n", err)
+				continue
+			}
+
+			client, _, err := projects.NewRootSSHClient(authCfg)
+			if err != nil {
+				fmt.Printf("Warning: %v\n", err)
 				continue
 			}
 

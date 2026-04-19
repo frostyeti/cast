@@ -9,7 +9,6 @@ import (
 	"github.com/frostyeti/cast/internal/eval"
 	"github.com/frostyeti/cast/internal/paths"
 	"github.com/frostyeti/cast/internal/types"
-	"github.com/frostyeti/go/env"
 	"go.yaml.in/yaml/v4"
 )
 
@@ -139,6 +138,9 @@ func loadInventories(p *Project) error {
 					if (h.Password == nil || *h.Password == "") && d.Password != nil {
 						h.Password = d.Password
 					}
+					if h.Agent == nil && d.Agent != nil {
+						h.Agent = d.Agent
+					}
 					if h.OS == nil && d.OS != nil {
 						h.OS = d.OS
 					} else if h.OS != nil && d.OS != nil {
@@ -190,30 +192,16 @@ func loadInventories(p *Project) error {
 					h.Host = v
 				}
 
-				if h.Password != nil && strings.ContainsRune(*h.Password, '{') {
-					v, err := eval.EvalAsString(*h.Password, scope)
-					if err != nil {
-						return err
-					}
-					*h.Password = v
-				}
-				if h.Password != nil && strings.ContainsRune(*h.Password, '$') {
-					v, err := env.Expand(*h.Password, env.WithGet(p.Env.Get), env.WithCommandSubstitution(substitution))
+				if h.Password != nil {
+					v, err := resolveSSHSecretLikeValue(*h.Password, scope, p.Env.Get, substitution, false)
 					if err != nil {
 						return err
 					}
 					*h.Password = v
 				}
 
-				if h.IdentityFile != nil && strings.ContainsRune(*h.IdentityFile, '{') {
-					v, err := eval.EvalAsString(*h.IdentityFile, scope)
-					if err != nil {
-						return err
-					}
-					*h.IdentityFile = v
-				}
-				if h.IdentityFile != nil && strings.ContainsRune(*h.IdentityFile, '$') {
-					v, err := env.Expand(*h.IdentityFile, env.WithGet(p.Env.Get), env.WithCommandSubstitution(substitution))
+				if h.IdentityFile != nil {
+					v, err := resolveSSHSecretLikeValue(*h.IdentityFile, scope, p.Env.Get, substitution, true)
 					if err != nil {
 						return err
 					}
@@ -246,6 +234,11 @@ func loadInventories(p *Project) error {
 					identityFile = *h.IdentityFile
 				}
 
+				agent := false
+				if h.Agent != nil {
+					agent = *h.Agent
+				}
+
 				osInfo := types.OsInfo{}
 				if h.OS != nil {
 					osInfo = *h.OS
@@ -262,6 +255,7 @@ func loadInventories(p *Project) error {
 					User:         user,
 					Password:     password,
 					IdentityFile: identityFile,
+					Agent:        agent,
 					OS:           osInfo,
 					Meta:         *meta,
 					Tags:         h.Tags,

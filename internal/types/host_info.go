@@ -17,6 +17,7 @@ type HostInfo struct {
 	User         *string  `json:"user,omitempty"`
 	IdentityFile *string  `json:"identityFile,omitempty"`
 	Password     *string  `json:"password,omitempty"`
+	Agent        *bool    `json:"agent,omitempty"`
 	Tags         []string `json:"tags,omitempty"`
 	Meta         *Meta    `json:"meta,omitempty"`
 	OS           *OsInfo  `json:"os,omitempty"`
@@ -101,7 +102,7 @@ func (he *HostInfo) UnmarshalYAML(node *yaml.Node) error {
 			}
 			password := valueNode.Value
 			he.Password = &password
-		case "tags":
+		case "tags", "groups":
 			if valueNode.Kind != yaml.SequenceNode {
 				return errors.YamlErrorf(valueNode, "expected yaml sequence for 'tags' field")
 			}
@@ -113,6 +114,15 @@ func (he *HostInfo) UnmarshalYAML(node *yaml.Node) error {
 				tags = append(tags, item.Value)
 			}
 			he.Tags = tags
+		case "agent":
+			if valueNode.Kind != yaml.ScalarNode {
+				return errors.YamlErrorf(valueNode, "expected yaml scalar for 'agent' field")
+			}
+			var agent bool
+			if err := valueNode.Decode(&agent); err != nil {
+				return errors.YamlErrorf(valueNode, "expected yaml boolean for 'agent' field")
+			}
+			he.Agent = &agent
 		case "meta":
 			if valueNode.Kind != yaml.MappingNode {
 				return errors.YamlErrorf(valueNode, "expected yaml mapping for 'meta' field")

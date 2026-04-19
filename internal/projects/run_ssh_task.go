@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"html/template"
 	"io"
-	"net"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -18,7 +17,6 @@ import (
 	"github.com/Masterminds/sprig"
 	"github.com/frostyeti/cast/internal/errors"
 	"github.com/frostyeti/cast/internal/paths"
-	goph "github.com/melbahja/goph"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -272,18 +270,8 @@ type SshRun struct {
 func runSSHTarget(ctx context.Context, taskContext TaskContext, target HostInfo) error {
 	signal := make(chan SshRun)
 
-	var auth goph.Auth
 	var err error
-	identity := ""
-	password := ""
 	run := ""
-	if target.IdentityFile != "" {
-		identity = target.IdentityFile
-	}
-
-	if target.Password != "" {
-		password = target.Password
-	}
 
 	run = taskContext.Task.Run
 
@@ -312,43 +300,14 @@ func runSSHTarget(ctx context.Context, taskContext TaskContext, target HostInfo)
 		run = buf.String()
 	}
 
-	if identity == "" && password != "" {
-		auth = goph.Password(password)
-	} else if identity != "" {
-		auth, err = goph.Key(identity, password)
-	} else if goph.HasAgent() {
-		auth, err = goph.UseAgent()
-	} else {
-		return errors.New("No authentication method provided for SSH task")
-	}
-
+	authCfg, err := projectSSHAuthConfig(taskContext.Project, target, "")
 	if err != nil {
-		return errors.New("Failed to create SSH authentication: " + err.Error())
+		return err
 	}
 
-	port := 22
-	if target.Port > 0 {
-		port = int(target.Port)
-	}
-	user := ""
-	if target.User != "" {
-		user = target.User
-	}
-
-	client, err := goph.NewConn(&goph.Config{
-		User: user,
-		Addr: target.Host,
-		Port: uint(port),
-		Auth: auth,
-		Callback: func(host string, remote net.Addr, key ssh.PublicKey) error {
-			return nil
-		},
-	})
-
+	client, _, err := newSSHClient(authCfg)
 	if err != nil {
-		err2 := errors.New("Failed to connect to SSH target " + target.Host + ": " + err.Error())
-		err2 = errors.WithCause(err2, err)
-		return err2
+		return err
 	}
 
 	defer func() {

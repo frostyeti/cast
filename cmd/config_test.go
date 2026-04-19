@@ -121,3 +121,79 @@ func TestSelfConfig_NotOverriddenByRootConfigTask(t *testing.T) {
 		t.Fatalf("expected self config to bypass root config override task, got: %s", out)
 	}
 }
+
+func TestRootContextSetGetShowRm_BuiltIn(t *testing.T) {
+	resetRootForTest()
+	tmpDir := t.TempDir()
+	projectFile := filepath.Join(tmpDir, "castfile")
+	if err := os.WriteFile(projectFile, []byte("name: test\n"), 0o644); err != nil {
+		t.Fatalf("failed to write castfile: %v", err)
+	}
+
+	if _, err := executeRootForTest([]string{"context", "use", "-p", projectFile, "prod"}, ""); err != nil {
+		t.Fatalf("root context use failed: %v", err)
+	}
+
+	out, err := executeRootForTest([]string{"context", "get", "-p", projectFile}, "")
+	if err != nil {
+		t.Fatalf("root context get failed: %v", err)
+	}
+	if !strings.Contains(out, "prod") {
+		t.Fatalf("expected root context get output, got: %s", out)
+	}
+
+	out, err = executeRootForTest([]string{"context", "show", "-p", projectFile}, "")
+	if err != nil {
+		t.Fatalf("root context show failed: %v", err)
+	}
+	if !strings.Contains(out, "prod") {
+		t.Fatalf("expected root context show output, got: %s", out)
+	}
+
+	if _, err := executeRootForTest([]string{"context", "rm", "-p", projectFile}, ""); err != nil {
+		t.Fatalf("root context rm failed: %v", err)
+	}
+}
+
+func TestRootContext_OverridesWithContextTask(t *testing.T) {
+	resetRootForTest()
+	tmpDir := t.TempDir()
+	projectFile := filepath.Join(tmpDir, "castfile")
+	content := "name: test\ntasks:\n  context:\n    uses: shell\n    run: echo CONTEXT_TASK_OVERRIDE\n"
+	if err := os.WriteFile(projectFile, []byte(content), 0o644); err != nil {
+		t.Fatalf("failed to write castfile: %v", err)
+	}
+
+	out, err := executeRootForTest([]string{"context", "use", "-p", projectFile, "prod"}, "")
+	if err != nil {
+		t.Fatalf("root context override command failed: %v", err)
+	}
+	if !strings.Contains(out, "CONTEXT_TASK_OVERRIDE") {
+		t.Fatalf("expected context task override output, got: %s", out)
+	}
+}
+
+func TestSelfContext_NotOverriddenByRootContextTask(t *testing.T) {
+	resetRootForTest()
+	tmpDir := t.TempDir()
+	projectFile := filepath.Join(tmpDir, "castfile")
+	content := "name: test\ntasks:\n  context:\n    uses: shell\n    run: echo ROOT_CONTEXT_OVERRIDE\n"
+	if err := os.WriteFile(projectFile, []byte(content), 0o644); err != nil {
+		t.Fatalf("failed to write castfile: %v", err)
+	}
+
+	if _, err := executeRootForTest([]string{"self", "context", "use", "-p", projectFile, "prod"}, ""); err != nil {
+		t.Fatalf("self context use should not be overridden, got: %v", err)
+	}
+
+	out, err := executeRootForTest([]string{"self", "context", "get", "-p", projectFile}, "")
+	if err != nil {
+		t.Fatalf("self context get should not be overridden, got: %v", err)
+	}
+	if !strings.Contains(out, "prod") {
+		t.Fatalf("expected self context value output, got: %s", out)
+	}
+	if strings.Contains(out, "ROOT_CONTEXT_OVERRIDE") {
+		t.Fatalf("expected self context to bypass root context override task, got: %s", out)
+	}
+}

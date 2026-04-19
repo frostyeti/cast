@@ -69,8 +69,10 @@ hosts:
 
 ## Host defaults
 
-- Fields: `user`, `identity`, `password`, `port`, `groups`, `meta`, `os`
-- `groups` is the YAML name used by the parser, while JSON keeps `tags`
+- Fields: `user`, `identity`, `password`, `port`, `agent`, `tags`, `meta`, `os`
+- `password` supports environment expansion and optional command substitution when `config.substitution` is enabled
+- `identity` supports `~` expansion plus environment expansion
+- `agent: true` requires a working SSH agent and fails with a clear diagnostic if `SSH_AUTH_SOCK` is unavailable
 - `os` accepts platform metadata and can be used to scope hosts by OS family/version
 
 ```yaml
@@ -78,11 +80,18 @@ defaults:
   ssh:
     user: deploy
     identity: ~/.ssh/id_ed25519
-    groups: [prod, linux]
+    tags: [prod, linux]
+    agent: false
     os:
       platform: linux
       family: linux
 ```
+
+## Authentication resolution
+
+- Cast prefers host-specific settings first, then falls back to `CAST_SSH_PASS`, then `SSH_PASS` when no password is set in inventory.
+- SSH/SCP task runners can use identity files, passwords, or the current SSH agent.
+- When `agent: true` is set on a host, Cast requires the SSH agent instead of silently falling back.
 
 ## Notes
 

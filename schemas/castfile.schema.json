@@ -261,19 +261,20 @@
       },
       "additionalProperties": false
     },
-    "host-defaults": {
-      "type": "object",
-      "description": "Reusable host defaults.",
-      "properties": {
-        "user": { "type": "string" },
-        "identity": { "type": "string", "description": "SSH identity file path." },
-        "password": { "type": "string", "description": "Password or env var name depending on runner." },
-        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
-        "groups": { "type": "array", "items": { "type": "string" }, "description": "Host tags/groups." },
-        "meta": { "type": "object", "additionalProperties": true },
-        "os": { "$ref": "#/definitions/os-info" }
-      },
-      "additionalProperties": false
+        "host-defaults": {
+          "type": "object",
+          "description": "Reusable host defaults.",
+          "properties": {
+            "user": { "type": "string" },
+            "identity": { "type": "string", "description": "SSH identity file path." },
+            "password": { "type": "string", "description": "SSH password value. Environment expansion and optional command substitution are supported when project config enables substitution." },
+            "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+            "agent": { "type": "boolean", "description": "Force use of the SSH agent for this host/default. Cast errors clearly when the agent is required but unavailable." },
+            "tags": { "type": "array", "items": { "type": "string" }, "description": "Host tags used for targeting and filtering." },
+            "meta": { "type": "object", "additionalProperties": true },
+            "os": { "$ref": "#/definitions/os-info" }
+          },
+          "additionalProperties": false
     },
     "host": {
       "description": "Host shorthand or mapping form.",
@@ -284,19 +285,20 @@
         },
         {
           "type": "object",
-          "properties": {
-            "host": { "type": "string" },
-            "user": { "type": "string" },
-            "identity": { "type": "string" },
-            "password": { "type": "string" },
-            "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
-            "defaults": { "type": "string" },
-            "groups": { "type": "array", "items": { "type": "string" } },
-            "meta": { "type": "object", "additionalProperties": true },
-            "os": { "$ref": "#/definitions/os-info" }
-          },
-          "required": ["host"],
-          "additionalProperties": false
+            "properties": {
+              "host": { "type": "string" },
+              "user": { "type": "string" },
+              "identity": { "type": "string", "description": "SSH identity file path. `~` and environment expansion are supported." },
+              "password": { "type": "string", "description": "SSH password value. Environment expansion and optional command substitution are supported when project config enables substitution. Cast also falls back to `CAST_SSH_PASS` then `SSH_PASS`." },
+              "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+              "defaults": { "type": "string" },
+              "agent": { "type": "boolean", "description": "Force use of the SSH agent for this host. Cast errors clearly when the agent is required but unavailable." },
+              "tags": { "type": "array", "items": { "type": "string" }, "description": "Host tags used for targeting and filtering." },
+              "meta": { "type": "object", "additionalProperties": true },
+              "os": { "$ref": "#/definitions/os-info" }
+            },
+            "required": ["host"],
+            "additionalProperties": false
         }
       ]
     },
@@ -352,9 +354,8 @@
         },
         "args": { "type": "array", "items": { "type": "string" } },
         "needs": {
-          "type": "array",
-          "items": { "$ref": "#/definitions/need" },
-          "description": "Task dependencies. A scalar is also accepted in YAML and becomes a need id."
+          "$ref": "#/definitions/needs",
+          "description": "Task dependencies. Accepts a string, a need object, or an array of either form. String values become need ids."
         },
         "with": { "type": "object", "additionalProperties": true },
         "hosts": { "type": "array", "items": { "type": "string", "pattern": "^[a-zA-Z0-9_\\-:.]+$" } },
@@ -406,7 +407,22 @@
       },
       "additionalProperties": false
     },
-    "needs": { "type": "array", "items": { "$ref": "#/definitions/need" } },
+    "needs": {
+      "description": "Dependency list. Accepts a single string/object or an array of them.",
+      "anyOf": [
+        { "type": "string", "description": "Single dependency id." },
+        { "$ref": "#/definitions/need" },
+        {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              { "type": "string", "description": "Dependency id." },
+              { "$ref": "#/definitions/need" }
+            ]
+          }
+        }
+      ]
+    },
     "step": {
       "description": "Job step. A scalar becomes a task reference; mappings can provide `run`, `uses`, `with`, or `task`.",
       "anyOf": [

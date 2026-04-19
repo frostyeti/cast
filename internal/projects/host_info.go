@@ -8,6 +8,7 @@ type HostInfo struct {
 	User         string
 	Password     string
 	IdentityFile string
+	Agent        bool
 	Tags         []string
 	Meta         types.Meta
 	OS           types.OsInfo

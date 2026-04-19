@@ -137,13 +137,5 @@ func tryRunConfigTaskOverride(cmd *cobra.Command, projectFile string, args []str
 }
 
 func hasConfigSubcmdOverride(schema *types.Project) bool {
-	if schema == nil {
-		return false
-	}
-	for _, raw := range schema.Subcmds {
-		if normalizeSubcmdPath(raw) == "config" {
-			return true
-		}
-	}
-	return false
+	return hasRootSubcmdOverride(schema, "config")
 }

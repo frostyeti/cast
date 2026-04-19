@@ -5,7 +5,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/frostyeti/cast/internal/types"
@@ -47,7 +46,6 @@ func (s *Server) handleSSHStream(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Determine connection parameters
 	host := targetHost.Host
 	port := uint(22)
 	if targetHost.Port != nil {
@@ -58,34 +56,36 @@ func (s *Server) handleSSHStream(w http.ResponseWriter, r *http.Request) {
 		user = *targetHost.User
 	}
 
-	var authMethods []ssh.AuthMethod
-
+	resolvedIdentity := ""
+	if targetHost.IdentityFile != nil {
+		resolvedIdentity = *targetHost.IdentityFile
+	}
+	resolvedPassword := ""
 	if targetHost.Password != nil {
-		authMethods = append(authMethods, ssh.Password(*targetHost.Password))
-	} else if targetHost.IdentityFile != nil {
-		key, err := os.ReadFile(*targetHost.IdentityFile)
-		if err == nil {
-			signer, err := ssh.ParsePrivateKey(key)
-			if err == nil {
-				authMethods = append(authMethods, ssh.PublicKeys(signer))
-			} else {
-				log.Printf("Failed to parse private key: %v", err)
-			}
-		} else {
-			log.Printf("Failed to read private key: %v", err)
-		}
-	} else {
-		// Default to ~/.ssh/id_rsa or id_ed25519
-		homeDir, _ := os.UserHomeDir()
-		candidates := []string{"id_ed25519", "id_rsa"}
-		for _, c := range candidates {
-			keyPath := filepath.Join(homeDir, ".ssh", c)
-			if key, err := os.ReadFile(keyPath); err == nil {
-				if signer, err := ssh.ParsePrivateKey(key); err == nil {
-					authMethods = append(authMethods, ssh.PublicKeys(signer))
-				}
-			}
-		}
+		resolvedPassword = *targetHost.Password
+	}
+	forceAgent := false
+	if targetHost.Agent != nil {
+		forceAgent = *targetHost.Agent
+	}
+
+	resolved, err := resolveWebSSHHostConfig(webSSHHostConfig{
+		Host:         host,
+		Port:         port,
+		User:         user,
+		IdentityFile: resolvedIdentity,
+		Password:     resolvedPassword,
+		ForceAgent:   forceAgent,
+	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	authMethods, err := buildWebSSHAuthMethods(resolved)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
 	}
 
 	if len(authMethods) == 0 {
@@ -100,7 +100,7 @@ func (s *Server) handleSSHStream(w http.ResponseWriter, r *http.Request) {
 		Timeout:         10 * time.Second,
 	}
 
-	addr := fmt.Sprintf("%s:%d", host, port)
+	addr := fmt.Sprintf("%s:%d", resolved.Host, resolved.Port)
 	client, err := ssh.Dial("tcp", addr, sshConfig)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("failed to connect to ssh: %v", err), http.StatusInternalServerError)

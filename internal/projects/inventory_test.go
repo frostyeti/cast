@@ -3,6 +3,7 @@ package projects_test
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/frostyeti/cast/internal/projects"
@@ -92,4 +93,46 @@ inventories:
 	require.Contains(t, proj.Hosts, "dev-api")
 	require.Equal(t, "192.168.1.5", proj.Hosts["dev-api"].Host)
 	require.Equal(t, "apiuser", proj.Hosts["dev-api"].User)
+}
+
+func TestInventoryResolvesIdentityPasswordAgentAndTags(t *testing.T) {
+	tmpDir := t.TempDir()
+	homeDir := filepath.Join(tmpDir, "home")
+	require.NoError(t, os.MkdirAll(filepath.Join(homeDir, ".ssh"), 0o755))
+	identityPath := filepath.Join(homeDir, ".ssh", "test.pem")
+	require.NoError(t, os.WriteFile(identityPath, []byte("pem"), 0o600))
+
+	t.Setenv("HOME", homeDir)
+	t.Setenv("MY_PASS", "secret-from-env")
+
+	projectDir := filepath.Join(tmpDir, "project")
+	require.NoError(t, os.MkdirAll(projectDir, 0o755))
+
+	castfileContent := `
+config:
+  substitution: true
+inventory:
+  defaults:
+    default:
+      tags: [base]
+  hosts:
+    one:
+      host: 10.0.0.1
+      identity: ~/.ssh/test.pem
+      password: $MY_PASS
+      tags: [db]
+      agent: true
+`
+	castfilePath := filepath.Join(projectDir, "castfile.yaml")
+	require.NoError(t, os.WriteFile(castfilePath, []byte(castfileContent), 0o644))
+
+	proj := &projects.Project{}
+	require.NoError(t, proj.LoadFromYaml(castfilePath))
+	require.NoError(t, proj.Init())
+
+	host := proj.Hosts["one"]
+	require.True(t, strings.HasSuffix(host.IdentityFile, string(filepath.Separator)+".ssh"+string(filepath.Separator)+"test.pem"), "expected expanded identity path, got %q", host.IdentityFile)
+	require.Equal(t, "secret-from-env", host.Password)
+	require.True(t, host.Agent)
+	require.ElementsMatch(t, []string{"base", "db"}, host.Tags)
 }
