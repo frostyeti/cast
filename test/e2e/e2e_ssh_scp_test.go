@@ -5,6 +5,7 @@ package e2e_test
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -274,6 +275,95 @@ func TestE2E_SCPRootSubcommand(t *testing.T) {
 
 	content := readFile(t, localDownload)
 	require.Equal(t, "server-two", strings.TrimSpace(content))
+}
+
+func TestE2E_SSHTask_PasswordFallbackAndForcedAgentError(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration test")
+	}
+	testcontainers.SkipIfProviderIsNotHealthy(t)
+
+	tmpDir := t.TempDir()
+	binPath := buildCastBinary(t, tmpDir)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	container := startSSHServer(t, ctx)
+	defer testcontainers.CleanupContainer(t, container)
+	prepareRemoteConfig(t, ctx, container, tmpDir)
+
+	host, port := containerHostPort(t, ctx, container, "2222/tcp")
+	projectDir := filepath.Join(tmpDir, "ssh-password-fallback-project")
+	require.NoError(t, os.MkdirAll(projectDir, 0o755))
+
+	castfile := fmt.Sprintf(`
+name: ssh-fallback-e2e
+config:
+  substitution: true
+inventory:
+  hosts:
+    envpass:
+      host: 127.0.0.1
+      port: %s
+      user: cast
+    cmdpass:
+      host: localhost
+      port: %s
+      user: cast
+      password: $(printf cast-pass)
+tasks:
+  via-env:
+    uses: ssh
+    hosts: [envpass]
+    run: echo ENV_PASS_OK
+
+  via-command:
+    uses: ssh
+    hosts: [cmdpass]
+    run: echo CMD_PASS_OK
+`, port, port)
+
+	writeFile(t, filepath.Join(projectDir, "castfile"), []byte(castfile), 0o644)
+
+	cmdEnv := exec.CommandContext(ctx, binPath, "via-env")
+	cmdEnv.Dir = projectDir
+	cmdEnv.Env = append(os.Environ(), "CAST_SSH_PASS=cast-pass")
+	out, err := cmdEnv.CombinedOutput()
+	require.NoError(t, err, string(out))
+	require.Contains(t, string(out), "ENV_PASS_OK")
+
+	cmdCommand := exec.CommandContext(ctx, binPath, "via-command")
+	cmdCommand.Dir = projectDir
+	out, err = cmdCommand.CombinedOutput()
+	require.NoError(t, err, string(out))
+	require.Contains(t, string(out), "CMD_PASS_OK")
+
+	forcedAgentDir := filepath.Join(tmpDir, "ssh-forced-agent-project")
+	require.NoError(t, os.MkdirAll(forcedAgentDir, 0o755))
+	forcedAgentCastfile := fmt.Sprintf(`
+name: ssh-agent-e2e
+inventory:
+  hosts:
+    forcedagent:
+      host: %s
+      port: %s
+      user: cast
+      agent: true
+tasks:
+  forcedagent:
+    uses: ssh
+    hosts: [forcedagent]
+    run: echo SHOULD_NOT_RUN
+`, host, port)
+	writeFile(t, filepath.Join(forcedAgentDir, "castfile"), []byte(forcedAgentCastfile), 0o644)
+
+	cmdAgent := exec.CommandContext(ctx, binPath, "forcedagent")
+	cmdAgent.Dir = forcedAgentDir
+	cmdAgent.Env = append(os.Environ(), "SSH_AUTH_SOCK=")
+	out, err = cmdAgent.CombinedOutput()
+	require.Error(t, err)
+	require.Contains(t, string(out), "ssh agent was required")
+	require.Contains(t, string(out), "SSH_AUTH_SOCK")
 }
 
 func buildCastBinary(t *testing.T, tmpDir string) string {

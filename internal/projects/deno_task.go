@@ -141,9 +141,33 @@ func pathIsDir(path string) bool {
 	return info.IsDir()
 }
 
-func buildDenoLingeringResourceHelper(taskName, sourceLabel string) string {
+func buildLingeringResourceHelper(taskName, sourceLabel, runtime string) string {
 	if strings.TrimSpace(taskName) == "" {
-		taskName = "deno-task"
+		taskName = runtime + "-task"
+	}
+	if runtime == "bun" {
+		return fmt.Sprintf(`
+const __castTaskName = %s;
+const __castSource = %s;
+const __castDiagnosticDelayMs = Number((typeof Bun !== "undefined" && Bun.env && Bun.env.CAST_DENO_DIAGNOSTIC_DELAY_MS) || (typeof process !== "undefined" && process.env && process.env.CAST_DENO_DIAGNOSTIC_DELAY_MS) || %q);
+
+function __castScheduleLingeringResourceDiagnostic() {
+	if (!Number.isFinite(__castDiagnosticDelayMs) || __castDiagnosticDelayMs < 0) {
+		return;
+	}
+
+	const __castTimer = setTimeout(() => {
+		console.error("[cast] Bun task " + __castTaskName + " finished running user code but did not exit after " + __castDiagnosticDelayMs + "ms.");
+		console.error("[cast] Source: " + __castSource);
+		console.error("[cast] The Bun process still has active work. Close open handles, add teardown, or call process.exit(0) when completion is intentional.");
+		process.exit(%d);
+	}, __castDiagnosticDelayMs);
+
+	if (typeof __castTimer === "object" && __castTimer !== null && typeof __castTimer.unref === "function") {
+		__castTimer.unref();
+	}
+}
+`, strconv.Quote(taskName), strconv.Quote(sourceLabel), strconv.Itoa(defaultDenoDiagnosticDelayMs), denoLingeringResourceExitCode)
 	}
 
 	return fmt.Sprintf(`
@@ -178,6 +202,10 @@ function __castScheduleLingeringResourceDiagnostic() {
 `, strconv.Quote(taskName), strconv.Quote(sourceLabel), strconv.Itoa(defaultDenoDiagnosticDelayMs), denoLingeringResourceExitCode)
 }
 
+func buildDenoLingeringResourceHelper(taskName, sourceLabel string) string {
+	return buildLingeringResourceHelper(taskName, sourceLabel, "deno")
+}
+
 func newDenoLingeringResourceError(taskID string) error {
 	if strings.TrimSpace(taskID) == "" {
 		return errors.New("Deno task left resources open; see diagnostics above")
@@ -187,6 +215,10 @@ func newDenoLingeringResourceError(taskID string) error {
 }
 
 func buildDenoModuleWrapper(modulePath, withJSON, taskName string) string {
+	return buildRuntimeModuleWrapper(modulePath, withJSON, taskName, "deno")
+}
+
+func buildRuntimeModuleWrapper(modulePath, withJSON, taskName, runtime string) string {
 	return fmt.Sprintf(`
 import process from "node:process";
 import * as mod from %s;
@@ -220,5 +252,5 @@ main()
 		console.error(err);
 		process.exit(1);
 	});
-`, strconv.Quote(modulePath), withJSON, buildDenoLingeringResourceHelper(taskName, modulePath))
+`, strconv.Quote(modulePath), withJSON, buildLingeringResourceHelper(taskName, modulePath, runtime))
 }

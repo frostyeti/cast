@@ -37,7 +37,7 @@ func TestE2E_WorkspaceAliasDeepNesting(t *testing.T) {
 			t.Fatalf("write nested castfile %d: %v", i, err)
 		}
 		if i == 24 {
-			builder.WriteString(fmt.Sprintf("    deep-service: %s\n", filepath.ToSlash(filepath.Join(segments...))))
+			_, _ = fmt.Fprintf(&builder, "    deep-service: %s\n", filepath.ToSlash(filepath.Join(segments...)))
 		}
 	}
 

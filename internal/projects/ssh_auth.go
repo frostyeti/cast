@@ -10,6 +10,7 @@ import (
 	"github.com/frostyeti/cast/internal/errors"
 	"github.com/frostyeti/cast/internal/eval"
 	"github.com/frostyeti/cast/internal/paths"
+	"github.com/frostyeti/cast/internal/sshagent"
 	"github.com/frostyeti/go/env"
 	goph "github.com/melbahja/goph"
 	"golang.org/x/crypto/ssh"
@@ -115,15 +116,15 @@ func resolveSSHSecretLikeValue(value string, scope map[string]any, envGet func(s
 }
 
 func createSSHAuth(cfg sshAuthConfig) (goph.Auth, string, error) {
-	hasAgent := goph.HasAgent()
+	hasAgent := sshagent.Available()
 	identity := strings.TrimSpace(cfg.IdentityFile)
 	password := cfg.Password
 
 	if cfg.ForceAgent {
 		if !hasAgent {
-			return nil, "", errors.Newf("%sssh agent was required for %s but SSH_AUTH_SOCK is not available; start an agent, load a key, or disable host.agent", cfg.ErrorPrefix, cfg.Host)
+			return nil, "", errors.Newf("%sssh agent was required for %s but no agent was available: %s; start an agent, load a key, or disable host.agent", cfg.ErrorPrefix, cfg.Host, sshagent.AvailabilityMessage())
 		}
-		auth, err := goph.UseAgent()
+		auth, err := sshagent.GophAuth()
 		if err != nil {
 			return nil, "", errors.Newf("%sfailed to use ssh agent for %s: %w", cfg.ErrorPrefix, cfg.Host, err)
 		}
@@ -139,7 +140,7 @@ func createSSHAuth(cfg sshAuthConfig) (goph.Auth, string, error) {
 		attempts = append(attempts, struct {
 			name string
 			fn   func() (goph.Auth, error)
-		}{name: "agent", fn: goph.UseAgent})
+		}{name: "agent", fn: sshagent.GophAuth})
 	}
 
 	if identity != "" {
@@ -164,7 +165,7 @@ func createSSHAuth(cfg sshAuthConfig) (goph.Auth, string, error) {
 		attempts = append(attempts, struct {
 			name string
 			fn   func() (goph.Auth, error)
-		}{name: "agent", fn: goph.UseAgent})
+		}{name: "agent", fn: sshagent.GophAuth})
 	}
 
 	if len(attempts) == 0 {

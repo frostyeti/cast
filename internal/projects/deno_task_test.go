@@ -86,6 +86,19 @@ func TestBuildDenoModuleWrapperIncludesResourceDiagnostic(t *testing.T) {
 	}
 }
 
+func TestBuildBunModuleWrapperAvoidsDenoGlobals(t *testing.T) {
+	wrapper := buildRuntimeModuleWrapper("file:///tmp/task.ts", `{}`, "module-task", "bun")
+	if strings.Contains(wrapper, "Deno.env") || strings.Contains(wrapper, "Deno.resources()") {
+		t.Fatalf("expected bun wrapper to avoid Deno globals, got %q", wrapper)
+	}
+	if !strings.Contains(wrapper, "typeof Bun !== \"undefined\"") {
+		t.Fatalf("expected bun wrapper to read Bun env when available, got %q", wrapper)
+	}
+	if !strings.Contains(wrapper, ".unref()") {
+		t.Fatalf("expected bun wrapper timer to unref itself, got %q", wrapper)
+	}
+}
+
 func TestNewDenoLingeringResourceError(t *testing.T) {
 	err := newDenoLingeringResourceError("deno-open-resource")
 	if err == nil || !strings.Contains(err.Error(), "left Deno resources open") {

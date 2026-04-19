@@ -72,7 +72,7 @@ func runDenoWrapper(ctx TaskContext, modulePath string, jsRuntime string) *TaskR
 	}
 
 	// We pass args as stringified JSON to process.env or just in the wrapper script.
-	wrapperContent := buildDenoModuleWrapper(modulePath, string(withJSON), ctx.Task.Name)
+	wrapperContent := buildRuntimeModuleWrapper(modulePath, string(withJSON), ctx.Task.Name, jsRuntime)
 
 	err := os.WriteFile(wrapperPath, []byte(wrapperContent), 0644)
 	if err != nil {

@@ -2,13 +2,12 @@ package web
 
 import (
 	"fmt"
-	"net"
 	"os"
 	"strings"
 
 	"github.com/frostyeti/cast/internal/paths"
+	"github.com/frostyeti/cast/internal/sshagent"
 	"golang.org/x/crypto/ssh"
-	"golang.org/x/crypto/ssh/agent"
 )
 
 type webSSHHostConfig struct {
@@ -48,7 +47,7 @@ func resolveWebSSHHostConfig(cfg webSSHHostConfig) (webSSHHostConfig, error) {
 
 func buildWebSSHAuthMethods(cfg webSSHHostConfig) ([]ssh.AuthMethod, error) {
 	if cfg.ForceAgent {
-		method, err := webSSHAgentMethod()
+		method, err := sshagent.SSHAuthMethod()
 		if err != nil {
 			return nil, fmt.Errorf("ssh agent was required for %s but is not available: %w", cfg.Host, err)
 		}
@@ -70,23 +69,11 @@ func buildWebSSHAuthMethods(cfg webSSHHostConfig) ([]ssh.AuthMethod, error) {
 		}
 		methods = append(methods, ssh.PublicKeys(signer))
 	}
-	if method, err := webSSHAgentMethod(); err == nil {
+	if method, err := sshagent.SSHAuthMethod(); err == nil {
 		methods = append(methods, method)
 	}
 	if len(methods) == 0 {
 		return nil, fmt.Errorf("no ssh authentication methods available for %s; set host.identity, host.password, host.agent, CAST_SSH_PASS, or SSH_PASS", cfg.Host)
 	}
 	return methods, nil
-}
-
-func webSSHAgentMethod() (ssh.AuthMethod, error) {
-	sock := strings.TrimSpace(os.Getenv("SSH_AUTH_SOCK"))
-	if sock == "" {
-		return nil, fmt.Errorf("SSH_AUTH_SOCK is not set")
-	}
-	conn, err := net.Dial("unix", sock)
-	if err != nil {
-		return nil, err
-	}
-	return ssh.PublicKeysCallback(agent.NewClient(conn).Signers), nil
 }
