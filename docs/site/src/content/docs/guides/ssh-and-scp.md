@@ -27,6 +27,7 @@ tasks:
 - `run`: remote shell script.
 - `with.script`: load the script from a local file before execution.
 - `with.max-parallel`: override the default host worker count.
+- `with.send-env`: when `true`, forward task env values with SSH `SendEnv`. Default is `false`.
 
 ### Script loading
 
@@ -44,6 +45,37 @@ tasks:
 ### Template mode
 
 Set `template: gotmpl` to render the SSH script before execution.
+
+By default, task env values are only available to the local template renderer. Cast does not send them to the remote SSH session unless `with.send-env: true` is set.
+
+```yaml
+tasks:
+  deploy:
+    uses: ssh
+    template: gotmpl
+    env:
+      APP_ENV: prod
+    run: |
+      echo "Deploying {{ .env.APP_ENV }} to {{ .target.Host }}"
+```
+
+### Forwarding environment variables
+
+Set `with.send-env: true` if you need the remote SSH session to receive task env values.
+
+```yaml
+tasks:
+  remote-env:
+    uses: ssh
+    hosts: [prod]
+    env:
+      APP_ENV: prod
+    with:
+      send-env: true
+    run: echo "$APP_ENV"
+```
+
+Many SSH servers reject `SendEnv` by default unless `AcceptEnv` is configured server-side. If that happens, Cast returns a diagnostic that points to `with.send-env` and the server `AcceptEnv` setting.
 
 ```yaml
 tasks:

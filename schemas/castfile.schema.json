@@ -357,7 +357,17 @@
           "$ref": "#/definitions/needs",
           "description": "Task dependencies. Accepts a string, a need object, or an array of either form. String values become need ids."
         },
-        "with": { "type": "object", "additionalProperties": true },
+        "with": {
+          "type": "object",
+          "description": "Runner-specific options. For SSH tasks, `send-env: true` forwards task env variables with SSH `SendEnv`; otherwise env values are only available to templates such as `template: gotmpl`.",
+          "properties": {
+            "send-env": {
+              "type": "boolean",
+              "description": "SSH only. When true, send task env values to the remote session with SSH `SendEnv`. Default is false, and many SSH servers reject this unless `AcceptEnv` is configured."
+            }
+          },
+          "additionalProperties": true
+        },
         "hosts": { "type": "array", "items": { "type": "string", "pattern": "^[a-zA-Z0-9_\\-:.]+$" } },
         "if": { "anyOf": [{ "type": "boolean" }, { "type": "string" }] },
         "hooks": { "$ref": "#/definitions/hooks" },

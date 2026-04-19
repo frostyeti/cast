@@ -272,8 +272,14 @@ func runSSHTarget(ctx context.Context, taskContext TaskContext, target HostInfo)
 
 	var err error
 	run := ""
+	sendEnv := false
 
 	run = taskContext.Task.Run
+	if taskContext.Schema.With != nil {
+		if v, ok := taskContext.Schema.With.GetBool("send-env"); ok {
+			sendEnv = v
+		}
+	}
 
 	// if template is gotmpl, use it to render the script
 	if taskContext.Task.Template == "gotmpl" {
@@ -327,11 +333,11 @@ func runSSHTarget(ctx context.Context, taskContext TaskContext, target HostInfo)
 
 	go func() {
 
-		if taskContext.Schema.Env != nil {
+		if sendEnv && taskContext.Schema.Env != nil {
 			for _, k := range taskContext.Schema.Env.Keys() {
 				v := taskContext.Task.Env[k]
 				if err := sess.Setenv(k, v); err != nil {
-					signal <- SshRun{Error: errors.New("Failed to set SSH environment variable: " + err.Error())}
+					signal <- SshRun{Error: errors.New("Failed to send SSH environment variable " + k + ": " + err.Error() + ". Most SSH servers block SendEnv by default; disable with.send-env or update the server AcceptEnv configuration.")}
 					return
 				}
 			}

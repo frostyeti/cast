@@ -552,5 +552,6 @@ tasks:
 - tasks fan out across targets using parallel workers
 - control concurrency with `with.max-parallel`
 - `ssh` supports `template: gotmpl` for script rendering
+- `ssh` supports `with.send-env: true` to forward task env values with SSH `SendEnv`; otherwise env values stay local to template rendering
 
 This model is designed for asynchronous multi-host operations with bounded parallelism.
