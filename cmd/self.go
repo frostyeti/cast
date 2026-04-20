@@ -188,6 +188,8 @@ func init() {
 	context := env.Get("CAST_CONTEXT")
 	selfCmd.PersistentFlags().StringP("project", "p", project, "Path to the project file (castfile.yaml)")
 	selfCmd.PersistentFlags().StringP("context", "c", context, "Context name to use from the project")
+	_ = selfCmd.RegisterFlagCompletionFunc("project", provideProjectFlagCompletion)
+	_ = selfCmd.RegisterFlagCompletionFunc("context", provideContextFlagCompletion)
 }
 
 func runSelfUpgrade(cmd *cobra.Command) error {

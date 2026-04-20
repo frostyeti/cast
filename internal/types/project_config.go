@@ -8,6 +8,7 @@ import (
 // ProjectConfig holds root-level parser behavior for a project.
 type ProjectConfig struct {
 	Context      *string        `yaml:"context,omitempty" json:"context,omitempty"`
+	Contexts     []string       `yaml:"contexts,omitempty" json:"contexts,omitempty"`
 	Shell        *string        `yaml:"shell,omitempty" json:"shell,omitempty"`
 	Substitution *bool          `yaml:"substitution,omitempty" json:"substitution,omitempty"`
 	Values       map[string]any `yaml:"-" json:"values,omitempty"`
@@ -45,6 +46,18 @@ func (pc *ProjectConfig) UnmarshalYAML(node *yaml.Node) error {
 				return errors.NewYamlError(valueNode, "expected yaml scalar for 'context' field")
 			}
 			pc.Context = &valueNode.Value
+		case "contexts":
+			if valueNode.Kind != yaml.SequenceNode {
+				return errors.NewYamlError(valueNode, "expected yaml sequence for 'contexts' field")
+			}
+			contexts := make([]string, 0, len(valueNode.Content))
+			for _, item := range valueNode.Content {
+				if item.Kind != yaml.ScalarNode {
+					return errors.NewYamlError(item, "expected yaml scalar in 'contexts' list")
+				}
+				contexts = append(contexts, item.Value)
+			}
+			pc.Contexts = contexts
 		case "substitution":
 			if valueNode.Kind != yaml.ScalarNode {
 				return errors.NewYamlError(valueNode, "expected yaml scalar for 'substitution' field")

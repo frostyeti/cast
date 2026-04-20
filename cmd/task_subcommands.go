@@ -314,6 +314,23 @@ func resolveProjectFileFromFlagOrCwd(cmd *cobra.Command) (string, error) {
 		projectFile, _ = cmd.InheritedFlags().GetString("project")
 	}
 	if strings.TrimSpace(projectFile) != "" {
+		if strings.HasPrefix(strings.TrimSpace(projectFile), "@") {
+			currentProjectFile, err := nearestProjectFile()
+			if err != nil {
+				return "", err
+			}
+			if currentProjectFile == "" {
+				return "", errors.New("no castfile found in current or parent directories to resolve workspace alias")
+			}
+			project, err := loadProjectForCompletion(currentProjectFile)
+			if err != nil {
+				return "", err
+			}
+			if resolved, ok := resolveWorkspaceAliasProjectFile(project, currentProjectFile, projectFile); ok {
+				return resolved, nil
+			}
+			return "", errors.Newf("unknown workspace alias: %s", projectFile)
+		}
 		if filepath.IsAbs(projectFile) {
 			return projectFile, nil
 		}

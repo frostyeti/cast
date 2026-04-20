@@ -70,6 +70,8 @@ func init() {
 	context := env.Get("CAST_CONTEXT")
 	configCmd.PersistentFlags().StringP("project", "p", project, "Path to the project file (castfile.yaml)")
 	configCmd.PersistentFlags().StringP("context", "c", context, "Context name to use from the project")
+	_ = configCmd.RegisterFlagCompletionFunc("project", provideProjectFlagCompletion)
+	_ = configCmd.RegisterFlagCompletionFunc("context", provideContextFlagCompletion)
 }
 
 func resolveProjectFileForConfigCommand(cmd *cobra.Command, args []string) (string, error) {

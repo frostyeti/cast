@@ -92,12 +92,14 @@ imports:
 ## `config`
 
 - Type: object
-- Fields: `context`, `substitution`
+- Fields: `context`, `contexts`, `substitution`
+- `contexts` declares the available context names for the project so commands and shell completion can discover them without overloading dotenv scoping
 - `substitution` controls command substitution during env/dotenv expansion; keep it off for untrusted files
 
 ```yaml
 config:
   context: prod
+  contexts: [dev, qa, prod]
   substitution: true
 ```
 

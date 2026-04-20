@@ -45,6 +45,8 @@ func init() {
 	taskCmd.PersistentFlags().StringP("context", "c", context, "Context name to use from the project")
 	taskCmd.PersistentFlags().StringArrayP("dotenv", "E", []string{}, "List of dotenv files to load")
 	taskCmd.PersistentFlags().StringToStringP("env", "e", map[string]string{}, "List of environment variables to set")
+	_ = taskCmd.RegisterFlagCompletionFunc("project", provideProjectFlagCompletion)
+	_ = taskCmd.RegisterFlagCompletionFunc("context", provideContextFlagCompletion)
 
 	taskRunCmd.Flags().StringP("job", "j", "", "Job name to run (executes job and downstream jobs if any)")
 	taskCmd.AddCommand(taskRunCmd)

@@ -64,6 +64,8 @@ func init() {
 	context := env.Get("CAST_CONTEXT")
 	contextCmd.PersistentFlags().StringP("project", "p", project, "Path to the project file (castfile.yaml)")
 	contextCmd.PersistentFlags().StringP("context", "c", context, "Context name to use from the project")
+	_ = contextCmd.RegisterFlagCompletionFunc("project", provideProjectFlagCompletion)
+	_ = contextCmd.RegisterFlagCompletionFunc("context", provideContextFlagCompletion)
 }
 
 func tryRunContextTaskOverride(cmd *cobra.Command, projectFile string, args []string, wantsHelp bool) (bool, error) {

@@ -57,6 +57,8 @@ func init() {
 	rootCmd.Flags().StringP("context", "c", context, "Context name to use from the project")
 	rootCmd.Flags().StringArrayP("dotenv", "E", []string{}, "List of dotenv files to load")
 	rootCmd.Flags().StringToStringP("env", "e", map[string]string{}, "List of environment variables to set")
+	_ = rootCmd.RegisterFlagCompletionFunc("project", provideProjectFlagCompletion)
+	_ = rootCmd.RegisterFlagCompletionFunc("context", provideContextFlagCompletion)
 }
 
 func printDirectTaskHelpForRootRequest(cmd *cobra.Command) bool {

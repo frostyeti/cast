@@ -76,6 +76,14 @@
           "type": "string",
           "description": "Default task context name used for context-specific lookups."
         },
+        "contexts": {
+          "type": "array",
+          "description": "Available context names for this project. Used for discoverability and shell completion.",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
         "substitution": {
           "type": "boolean",
           "default": true,
