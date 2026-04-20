@@ -29,6 +29,9 @@ func TestRootHelpIncludesTaskCommand(t *testing.T) {
 	if !strings.Contains(out, "\n  context     Manage castfile context values\n") {
 		t.Fatalf("expected context command in root help output, got: %s", out)
 	}
+	if !strings.Contains(out, "\n  workspace   Manage workspace discovery and aliases\n") {
+		t.Fatalf("expected workspace command in root help output, got: %s", out)
+	}
 }
 
 func TestTaskHelpIncludesSubcommands(t *testing.T) {
@@ -133,6 +136,52 @@ func TestTaskRunDoesNotRunRunTaskOverride(t *testing.T) {
 	}
 	if !strings.Contains(out, "DEMO_RUN") {
 		t.Fatalf("expected demo task output, got: %s", out)
+	}
+}
+
+func TestRootWorkspaceRunsTaskWhenWorkspaceTaskExists(t *testing.T) {
+	resetRootForTest()
+	tmpDir := t.TempDir()
+	projectFile := filepath.Join(tmpDir, "castfile")
+	if err := os.WriteFile(projectFile, []byte("name: test\ntasks:\n  workspace:\n    uses: shell\n    run: echo WORKSPACE_TASK_OVERRIDE\n"), 0o644); err != nil {
+		t.Fatalf("failed to write castfile: %v", err)
+	}
+
+	out, err := executeRootForTest([]string{"workspace", "-p", projectFile}, "")
+	if err != nil {
+		t.Fatalf("root workspace failed: %v", err)
+	}
+	if !strings.Contains(out, "WORKSPACE_TASK_OVERRIDE") {
+		t.Fatalf("expected root workspace task override output, got: %s", out)
+	}
+}
+
+func TestRootWorkspaceLsBypassesWorkspaceTaskOverride(t *testing.T) {
+	resetRootForTest()
+	tmpDir := t.TempDir()
+	rootFile := filepath.Join(tmpDir, "castfile")
+	serviceDir := filepath.Join(tmpDir, "services", "api")
+	if err := os.MkdirAll(serviceDir, 0o755); err != nil {
+		t.Fatalf("mkdir service dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(serviceDir, "castfile"), []byte("name: api\n"), 0o644); err != nil {
+		t.Fatalf("write service castfile: %v", err)
+	}
+
+	rootContent := "name: root\nworkspace:\n  aliases:\n    bob: services/api\ntasks:\n  workspace:\n    uses: shell\n    run: echo SHOULD_NOT_RUN\n"
+	if err := os.WriteFile(rootFile, []byte(rootContent), 0o644); err != nil {
+		t.Fatalf("write root castfile: %v", err)
+	}
+
+	out, err := executeRootForTest([]string{"workspace", "ls", "-p", rootFile}, "")
+	if err != nil {
+		t.Fatalf("root workspace ls failed: %v", err)
+	}
+	if strings.Contains(out, "SHOULD_NOT_RUN") {
+		t.Fatalf("expected workspace ls to bypass workspace task override, got: %s", out)
+	}
+	if !strings.Contains(out, "ALIAS\tPATH") {
+		t.Fatalf("expected workspace ls output header, got: %s", out)
 	}
 }
 
