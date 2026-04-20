@@ -46,32 +46,22 @@ func runWorkspaceListCommand(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	sort.Slice(entries, func(i, j int) bool {
-		left := strings.TrimSpace(entries[i].Rel)
-		right := strings.TrimSpace(entries[j].Rel)
-		if left == "" {
-			left = entries[i].Path
-		}
-		if right == "" {
-			right = entries[j].Path
-		}
-		return left < right
-	})
-
 	if len(entries) == 0 {
 		_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No workspace projects found")
 		return nil
 	}
 
-	_, _ = fmt.Fprintln(cmd.OutOrStdout(), "ALIAS\tPATH")
+	type workspaceAliasEntry struct {
+		alias string
+		path  string
+	}
+
+	aliased := []workspaceAliasEntry{}
+	unaliased := []string{}
+
 	for _, info := range entries {
 		if info == nil {
 			continue
-		}
-
-		alias := strings.TrimSpace(info.Alias)
-		if alias == "" {
-			alias = "-"
 		}
 
 		pathValue := strings.TrimSpace(info.Rel)
@@ -79,7 +69,47 @@ func runWorkspaceListCommand(cmd *cobra.Command, args []string) error {
 			pathValue = info.Path
 		}
 
-		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s\t%s\n", alias, pathValue)
+		alias := strings.TrimSpace(info.Alias)
+		if alias == "" {
+			unaliased = append(unaliased, pathValue)
+			continue
+		}
+
+		aliased = append(aliased, workspaceAliasEntry{alias: alias, path: pathValue})
+	}
+
+	sort.Slice(aliased, func(i, j int) bool {
+		if aliased[i].alias == aliased[j].alias {
+			return aliased[i].path < aliased[j].path
+		}
+		return aliased[i].alias < aliased[j].alias
+	})
+	sort.Strings(unaliased)
+
+	if len(aliased) > 0 {
+		maxAliasLen := 0
+		for _, entry := range aliased {
+			if len(entry.alias) > maxAliasLen {
+				maxAliasLen = len(entry.alias)
+			}
+		}
+		aliasWidth := maxAliasLen + 2
+
+		_, _ = fmt.Fprintln(cmd.OutOrStdout(), "ALIASES")
+		for _, entry := range aliased {
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%-*s%s\n", aliasWidth, entry.alias, entry.path)
+		}
+	}
+
+	if len(unaliased) > 0 {
+		if len(aliased) > 0 {
+			_, _ = fmt.Fprintln(cmd.OutOrStdout())
+		}
+
+		_, _ = fmt.Fprintln(cmd.OutOrStdout(), "PATHS")
+		for _, path := range unaliased {
+			_, _ = fmt.Fprintln(cmd.OutOrStdout(), path)
+		}
 	}
 
 	return nil

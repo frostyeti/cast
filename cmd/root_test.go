@@ -55,3 +55,21 @@ func TestRootCommand(t *testing.T) {
 		t.Errorf("expected root update command to be removed, got: %s", output)
 	}
 }
+
+func TestRootCommand_DoesNotPrintUsageOnExecutionError(t *testing.T) {
+	cmd := rootCmd
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+	cmd.SetArgs([]string{"self", "config", "get"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatalf("expected command error")
+	}
+
+	output := buf.String()
+	if strings.Contains(strings.ToLower(output), "usage:") {
+		t.Fatalf("expected no usage output on error, got: %s", output)
+	}
+}

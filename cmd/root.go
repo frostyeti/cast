@@ -41,6 +41,7 @@ func init() {
 	project := env.Get("CAST_PROJECT")
 	context := env.Get("CAST_CONTEXT")
 
+	rootCmd.SilenceUsage = true
 	rootCmd.FParseErrWhitelist.UnknownFlags = true
 	rootCmd.CompletionOptions.DisableDefaultCmd = false
 	rootCmd.CompletionOptions.HiddenDefaultCmd = true

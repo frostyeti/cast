@@ -180,7 +180,7 @@ func TestRootWorkspaceLsBypassesWorkspaceTaskOverride(t *testing.T) {
 	if strings.Contains(out, "SHOULD_NOT_RUN") {
 		t.Fatalf("expected workspace ls to bypass workspace task override, got: %s", out)
 	}
-	if !strings.Contains(out, "ALIAS\tPATH") {
+	if !strings.Contains(out, "ALIASES") {
 		t.Fatalf("expected workspace ls output header, got: %s", out)
 	}
 }
