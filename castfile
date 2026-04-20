@@ -1,29 +1,45 @@
-jobs:
-    slow_job:
-        cron: '*/1 * * * *'
-        steps:
-            - slow_task
-tasks:
-    ello:
-        uses: spell:examples/hello-world@head
-    slow_task:
-        run: |
-            echo "Starting task..."
-            for i in {1..5}; do
-              echo "Task running $i..."
-              sleep 1
-            done
-            echo "Task done!"
-        uses: bash
+workspace:
+  include: []
+  aliases:
+    bob: "./examples/app1/castfile"
+
+inventory:
+  hosts:
     test:
-        run: go test ./...
-        uses: docker
-        with:
-            image: golang:1.26
-    test-bun:
-        uses: spell:examples/bun-with-inputs@head
-        with:
-            greeting: greet
-    yolo:
-        run: echo "test"
-        uses: shell
+      host: 10.0.0.81
+      agent: true
+
+jobs:
+  slow_job:
+    cron: '*/1 * * * *'
+    steps:
+      - slow_task
+tasks:
+  uptime:
+    uses: ssh
+    run: echo "hello"
+    hosts: ["test"]
+
+  ello:
+    uses: spell:examples/hello-world@head
+  slow_task:
+    run: |
+      echo "Starting task..."
+      for i in {1..5}; do
+          echo "Task running $i..."
+          sleep 1
+      done
+      echo "Task done!"
+    uses: bash
+  test:
+    run: go test ./...
+    uses: docker
+    with:
+      image: golang:1.26
+  test-bun:
+    uses: spell:examples/bun-with-inputs@head
+    with:
+      greeting: greet
+  yolo:
+    run: echo "test"
+    uses: shell

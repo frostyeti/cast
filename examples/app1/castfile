@@ -1,0 +1,14 @@
+
+
+
+config:
+  contexts:
+    - test
+    - prod
+
+tasks:
+  echo:test:
+    run: echo "test"
+
+  echo:prod:
+    run: echo "prod"
