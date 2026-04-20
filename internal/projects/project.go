@@ -20,24 +20,25 @@ import (
 )
 
 type Project struct {
-	Id             string
-	Env            *types.Env
-	Secrets        *types.Env
-	Tasks          types.TaskMap
-	Hosts          map[string]HostInfo
-	Scope          *Scope
-	ContextName    string
-	Schema         types.Project
-	File           string
-	Dir            string
-	CastDir        string
-	imported       map[string]types.Module
-	importedOrder  []string
-	init           bool
-	cleanupEnv     bool
-	cleanupPath    bool
-	cleanupOutputs bool
-	Workspace      map[string]*ProjectInfo
+	Id               string
+	Env              *types.Env
+	Secrets          *types.Env
+	Tasks            types.TaskMap
+	Hosts            map[string]HostInfo
+	Scope            *Scope
+	ContextName      string
+	Schema           types.Project
+	File             string
+	Dir              string
+	CastDir          string
+	imported         map[string]types.Module
+	importedOrder    []string
+	init             bool
+	cleanupEnv       bool
+	cleanupPath      bool
+	cleanupOutputs   bool
+	Workspace        map[string]*ProjectInfo
+	WorkspaceEntries []*ProjectInfo
 }
 
 type ProjectInfo struct {
@@ -53,6 +54,8 @@ func (p *Project) InitWorkspace() error {
 	}
 
 	p.Workspace = make(map[string]*ProjectInfo)
+	p.WorkspaceEntries = []*ProjectInfo{}
+	explicitPaths := map[string]struct{}{}
 
 	for alias, path := range p.Schema.Workspace.Aliases {
 		resolvedPath, err := resolveWorkspaceProjectPath(p.Dir, path)
@@ -65,6 +68,8 @@ func (p *Project) InitWorkspace() error {
 		relPath, _ := filepath.Rel(p.Dir, resolvedPath)
 		proj.Rel = relPath
 		p.Workspace[alias] = proj
+		p.WorkspaceEntries = append(p.WorkspaceEntries, proj)
+		explicitPaths[resolvedPath] = struct{}{}
 	}
 
 	excludes := []glob.Glob{}
@@ -102,6 +107,14 @@ func (p *Project) InitWorkspace() error {
 		p.Schema.Workspace.Exclude = append(p.Schema.Workspace.Exclude, ".git/**")
 	}
 
+	if !slices.Contains(p.Schema.Workspace.Exclude, "**/.cast/**") {
+		p.Schema.Workspace.Exclude = append(p.Schema.Workspace.Exclude, "**/.cast/**")
+	}
+
+	if !slices.Contains(p.Schema.Workspace.Exclude, ".cast/**") {
+		p.Schema.Workspace.Exclude = append(p.Schema.Workspace.Exclude, ".cast/**")
+	}
+
 	for _, pattern := range p.Schema.Workspace.Exclude {
 		if strings.HasSuffix(pattern, "/**") {
 			excludes = append(excludes, glob.MustCompile(pattern[:len(pattern)-3]))
@@ -119,6 +132,7 @@ func (p *Project) InitWorkspace() error {
 	}
 
 	dir := p.Dir
+	discovered := []*ProjectInfo{}
 
 	if err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
@@ -126,27 +140,17 @@ func (p *Project) InitWorkspace() error {
 		}
 
 		if !d.IsDir() {
-			name := d.Name()
-			if name == "castfile" || name == ".castfile" || name == "cast.yaml" || name == "cast.yml" {
+			if isWorkspaceProjectFile(d.Name()) {
 				if path == p.File {
 					return nil
 				}
+
 				proj := &ProjectInfo{}
 				proj.Path = path
-				projectDir := filepath.Dir(path)
-				basename := filepath.Base(projectDir)
-				proj.Alias = basename
+				proj.Alias = filepath.Base(filepath.Dir(path))
 				relPath, _ := filepath.Rel(p.Dir, path)
 				proj.Rel = relPath
-				_, ok := p.Workspace[proj.Alias]
-				if ok {
-					if logx.DebugEnabled() {
-						logx.Debugf("workspace alias %s already mapped; keeping %s and skipping %s", proj.Alias, p.Workspace[proj.Alias].Path, path)
-					}
-					return nil
-				}
-
-				p.Workspace[proj.Alias] = proj
+				discovered = append(discovered, proj)
 			}
 
 			return nil
@@ -188,7 +192,53 @@ func (p *Project) InitWorkspace() error {
 		return err
 	}
 
+	aliasCounts := map[string]int{}
+	for _, proj := range discovered {
+		aliasCounts[proj.Alias]++
+	}
+
+	seenPaths := map[string]struct{}{}
+	for _, entry := range p.WorkspaceEntries {
+		if entry != nil {
+			seenPaths[entry.Path] = struct{}{}
+		}
+	}
+
+	for _, proj := range discovered {
+		if _, seen := seenPaths[proj.Path]; seen {
+			continue
+		}
+
+		seenPaths[proj.Path] = struct{}{}
+
+		if _, explicit := explicitPaths[proj.Path]; explicit {
+			continue
+		}
+
+		if aliasCounts[proj.Alias] > 1 {
+			p.WorkspaceEntries = append(p.WorkspaceEntries, &ProjectInfo{Path: proj.Path, Rel: proj.Rel})
+			continue
+		}
+
+		if _, exists := p.Workspace[proj.Alias]; exists {
+			if logx.DebugEnabled() {
+				logx.Debugf("workspace alias %s already mapped; skipping auto-alias for %s", proj.Alias, proj.Path)
+			}
+			p.WorkspaceEntries = append(p.WorkspaceEntries, &ProjectInfo{Path: proj.Path, Rel: proj.Rel})
+			continue
+		}
+
+		auto := &ProjectInfo{Alias: proj.Alias, Path: proj.Path, Rel: proj.Rel}
+		p.Workspace[auto.Alias] = auto
+		p.WorkspaceEntries = append(p.WorkspaceEntries, auto)
+	}
+
 	return nil
+}
+
+func isWorkspaceProjectFile(name string) bool {
+	name = strings.ToLower(strings.TrimSpace(name))
+	return name == "castfile" || name == ".castfile" || name == "castfile.yaml" || name == "castfile.yml" || name == "cast.yaml" || name == "cast.yml"
 }
 
 func resolveWorkspaceProjectPath(baseDir, value string) (string, error) {

@@ -51,11 +51,56 @@ func (n *subcmdNode) sortedTasks() []string {
 }
 
 func registerDynamicSubcommands() {
-	projectFile, err := resolveProjectFileFromFlagOrCwd(rootCmd)
+	projectFile, err := resolveProjectFileForDynamicSubcommands(rootCmd)
 	if err != nil || projectFile == "" {
 		return
 	}
 	_ = registerRootDynamicSubcommandsForProjectFile(projectFile)
+}
+
+func resolveProjectFileForDynamicSubcommands(cmd *cobra.Command) (string, error) {
+	projectFile, err := resolveProjectFileFromFlagOrCwd(cmd)
+	if err == nil {
+		return projectFile, nil
+	}
+
+	projectName, hasProject := parseProjectFromArgs(os.Args[1:])
+	if !hasProject || strings.TrimSpace(projectName) == "" {
+		return "", err
+	}
+
+	fallbackProjectFile, nearestErr := nearestProjectFile()
+	if nearestErr != nil || strings.TrimSpace(fallbackProjectFile) == "" {
+		return "", err
+	}
+
+	project := &projects.Project{}
+	if loadErr := project.LoadFromYaml(fallbackProjectFile); loadErr != nil {
+		return "", err
+	}
+
+	workspaceProject, resolveErr := resolveWorkspaceProjectByAlias(project, projectName)
+	if resolveErr != nil {
+		return "", err
+	}
+
+	return workspaceProject.Path, nil
+}
+
+func parseProjectFromArgs(args []string) (string, bool) {
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		switch {
+		case a == "-p" || a == "--project":
+			if i+1 < len(args) {
+				return strings.TrimSpace(args[i+1]), true
+			}
+		case strings.HasPrefix(a, "--project="):
+			return strings.TrimSpace(strings.TrimPrefix(a, "--project=")), true
+		}
+	}
+
+	return "", false
 }
 
 func clearDynamicSubcommands(parent *cobra.Command) {

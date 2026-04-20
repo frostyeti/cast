@@ -12,6 +12,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var supportedProjectCompletionFiles = []string{"castfile", ".castfile", "castfile.yaml"}
+
 func provideProjectCompletion(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	projectFile, contextName, err := completionProjectAndContext(cmd, args)
 	if err != nil || strings.TrimSpace(projectFile) == "" {
@@ -107,29 +109,15 @@ func workspaceAliasCompletions(project *projects.Project, projectFile, toComplet
 	seen := map[string]struct{}{}
 	completions := []string{}
 	if project != nil {
+		if project.Schema.Workspace == nil {
+			return completions
+		}
+
 		for alias := range project.Workspace {
 			candidate := "@" + alias
 			if strings.HasPrefix(candidate, toComplete) {
 				seen[candidate] = struct{}{}
 				completions = append(completions, candidate)
-			}
-		}
-	}
-
-	entries, err := os.ReadDir(filepath.Dir(projectFile))
-	if err == nil {
-		for _, entry := range entries {
-			if entry.IsDir() && !strings.HasPrefix(entry.Name(), ".") {
-				for _, f := range []string{"castfile", ".castfile", "castfile.yaml", "castfile.yml"} {
-					if _, err := os.Stat(filepath.Join(filepath.Dir(projectFile), entry.Name(), f)); err == nil {
-						candidate := "@" + entry.Name()
-						if _, ok := seen[candidate]; !ok && strings.HasPrefix(candidate, toComplete) {
-							seen[candidate] = struct{}{}
-							completions = append(completions, candidate)
-						}
-						break
-					}
-				}
 			}
 		}
 	}
@@ -149,6 +137,11 @@ func resolveWorkspaceAliasProjectFile(project *projects.Project, projectFile, al
 	if project != nil {
 		if wp, ok := project.Workspace[alias]; ok {
 			return wp.Path, true
+		}
+		for name, wp := range project.Workspace {
+			if strings.EqualFold(name, alias) {
+				return wp.Path, true
+			}
 		}
 	}
 
@@ -170,14 +163,24 @@ func provideProjectFlagCompletion(cmd *cobra.Command, args []string, toComplete 
 	completions := []string{}
 	seen := map[string]struct{}{}
 
+	hasWorkspace := false
+	var workspaceProject *projects.Project
+	var workspaceProjectFile string
+
+	if projectFile, err := nearestProjectFile(); err == nil && strings.TrimSpace(projectFile) != "" {
+		workspaceProjectFile = projectFile
+		if project, err := loadProjectForCompletion(projectFile); err == nil {
+			workspaceProject = project
+			hasWorkspace = project.Schema.Workspace != nil
+		}
+	}
+
 	if strings.HasPrefix(toComplete, "@") || toComplete == "" {
-		if projectFile, err := nearestProjectFile(); err == nil && projectFile != "" {
-			if project, err := loadProjectForCompletion(projectFile); err == nil {
-				for _, candidate := range workspaceAliasCompletions(project, projectFile, toComplete) {
-					if _, ok := seen[candidate]; !ok {
-						seen[candidate] = struct{}{}
-						completions = append(completions, candidate)
-					}
+		if hasWorkspace && workspaceProject != nil && strings.TrimSpace(workspaceProjectFile) != "" {
+			for _, candidate := range workspaceAliasCompletions(workspaceProject, workspaceProjectFile, toComplete) {
+				if _, ok := seen[candidate]; !ok {
+					seen[candidate] = struct{}{}
+					completions = append(completions, candidate)
 				}
 			}
 		}
@@ -187,19 +190,14 @@ func provideProjectFlagCompletion(cmd *cobra.Command, args []string, toComplete 
 		return completions, cobra.ShellCompDirectiveNoFileComp
 	}
 
-	baseDir := "."
-	pattern := toComplete + "*"
-	if dir := filepath.Dir(toComplete); dir != "." && dir != "" {
-		baseDir = dir
-		pattern = filepath.Base(toComplete) + "*"
-	}
+	baseDir, namePrefix := completionPathParts(toComplete)
 	entries, err := os.ReadDir(baseDir)
 	if err != nil {
 		return completions, cobra.ShellCompDirectiveNoSpace
 	}
 	for _, entry := range entries {
 		name := entry.Name()
-		if !strings.HasPrefix(name, strings.TrimSuffix(pattern, "*")) {
+		if !strings.HasPrefix(name, namePrefix) {
 			continue
 		}
 		candidate := name
@@ -207,10 +205,17 @@ func provideProjectFlagCompletion(cmd *cobra.Command, args []string, toComplete 
 			candidate = filepath.Join(baseDir, name)
 		}
 		if entry.IsDir() {
+			if !completionDirectoryHasProjectFile(candidate) {
+				continue
+			}
+
 			if _, ok := seen[candidate+string(filepath.Separator)]; !ok {
 				seen[candidate+string(filepath.Separator)] = struct{}{}
 				completions = append(completions, candidate+string(filepath.Separator))
 			}
+			continue
+		}
+		if !isProjectFileName(name) {
 			continue
 		}
 		if _, ok := seen[candidate]; !ok {
@@ -220,6 +225,53 @@ func provideProjectFlagCompletion(cmd *cobra.Command, args []string, toComplete 
 	}
 	sort.Strings(completions)
 	return completions, cobra.ShellCompDirectiveNoSpace
+}
+
+func completionPathParts(toComplete string) (string, string) {
+	sep := string(filepath.Separator)
+	if toComplete == "." {
+		return ".", ""
+	}
+	if toComplete == sep {
+		return sep, ""
+	}
+
+	baseDir := "."
+	namePrefix := toComplete
+
+	if strings.Contains(toComplete, sep) {
+		if strings.HasSuffix(toComplete, sep) {
+			baseDir = strings.TrimSuffix(toComplete, sep)
+			if strings.TrimSpace(baseDir) == "" {
+				baseDir = sep
+			}
+			namePrefix = ""
+		} else {
+			baseDir = filepath.Dir(toComplete)
+			namePrefix = filepath.Base(toComplete)
+			if strings.TrimSpace(baseDir) == "" {
+				baseDir = "."
+			}
+		}
+	}
+
+	return baseDir, namePrefix
+}
+
+func isProjectFileName(name string) bool {
+	name = strings.ToLower(strings.TrimSpace(name))
+	for _, supported := range supportedProjectCompletionFiles {
+		if name == supported {
+			return true
+		}
+	}
+
+	return false
+}
+
+func completionDirectoryHasProjectFile(dir string) bool {
+	_, ok := projectFileFromDirectoryForCompletion(dir)
+	return ok
 }
 
 func provideContextFlagCompletion(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
@@ -245,7 +297,39 @@ func provideContextFlagCompletion(cmd *cobra.Command, args []string, toComplete 
 
 func projectFileForFlagCompletion(cmd *cobra.Command, args []string) (string, error) {
 	tmp := completionFlagSnapshot(cmd, args)
-	return resolveProjectFileFromFlagOrCwd(tmp)
+	projectFile, err := resolveProjectFileFromFlagOrCwd(tmp)
+	if err != nil {
+		return "", err
+	}
+
+	info, err := os.Stat(projectFile)
+	if err == nil && info != nil && info.IsDir() {
+		if resolved, ok := projectFileFromDirectoryForCompletion(projectFile); ok {
+			return resolved, nil
+		}
+
+		nearest, nearestErr := nearestProjectFile()
+		if nearestErr != nil {
+			return "", nearestErr
+		}
+		if strings.TrimSpace(nearest) != "" {
+			return nearest, nil
+		}
+	}
+
+	return projectFile, nil
+}
+
+func projectFileFromDirectoryForCompletion(dir string) (string, bool) {
+	for _, file := range supportedProjectCompletionFiles {
+		candidate := filepath.Join(dir, file)
+		info, err := os.Stat(candidate)
+		if err == nil && info != nil && !info.IsDir() {
+			return candidate, true
+		}
+	}
+
+	return "", false
 }
 
 func completionFlagSnapshot(cmd *cobra.Command, args []string) *cobra.Command {

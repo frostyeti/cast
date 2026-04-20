@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/frostyeti/cast/internal/errors"
@@ -119,23 +118,19 @@ var taskListCmd = &cobra.Command{
 
 			if err != nil {
 				if os.IsNotExist(err) {
-					projectName = projectFile
+					projectName = strings.TrimPrefix(projectFile, "@")
 					projectFile = ""
 				} else {
 					return errors.Newf("failed to access project file %s: %w", projectFile, err)
 				}
 			} else {
 				if info != nil && info.IsDir() {
-					projectName = projectFile
-					projectFile = ""
-					tryFiles := []string{"castfile", ".castfile", "castfile.yaml", "castfile.yml"}
-					for _, f := range tryFiles {
-						fullPath := filepath.Join(projectName, f)
-						if _, err := os.Stat(fullPath); err == nil {
-							projectFile = fullPath
-							projectName = ""
-							break
-						}
+					if resolved, ok := resolveProjectFileByFolder(projectFile); ok {
+						projectFile = resolved
+						projectName = ""
+					} else {
+						projectName = strings.TrimPrefix(projectFile, "@")
+						projectFile = ""
 					}
 				}
 			}
@@ -163,14 +158,9 @@ var taskListCmd = &cobra.Command{
 		}
 
 		if projectName != "" {
-			err := project.InitWorkspace()
+			workspaceProject, err := resolveWorkspaceProjectByAlias(project, projectName)
 			if err != nil {
-				return errors.Newf("failed to initialize workspace for project %s: %w", projectName, err)
-			}
-
-			workspaceProject, ok := project.Workspace[projectName]
-			if !ok {
-				return errors.Newf("project %s not found in workspace", projectName)
+				return err
 			}
 
 			if workspaceProject.Project == nil {

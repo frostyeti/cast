@@ -176,6 +176,7 @@ func init() {
 	selfCmd.AddCommand(selfUpgradeCmd)
 	selfCmd.AddCommand(selfConfigCmd)
 	selfCmd.AddCommand(selfContextCmd)
+	selfCmd.AddCommand(selfWorkspaceCmd)
 	selfConfigCmd.AddCommand(selfConfigSetCmd)
 	selfConfigCmd.AddCommand(selfConfigGetCmd)
 	selfConfigCmd.AddCommand(selfConfigRmCmd)
@@ -183,6 +184,7 @@ func init() {
 	selfContextCmd.AddCommand(selfContextGetCmd)
 	selfContextCmd.AddCommand(selfContextShowCmd)
 	selfContextCmd.AddCommand(selfContextRmCmd)
+	selfWorkspaceCmd.AddCommand(selfWorkspaceListCmd)
 
 	project := env.Get("CAST_PROJECT")
 	context := env.Get("CAST_CONTEXT")
