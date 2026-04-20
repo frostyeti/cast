@@ -38,7 +38,6 @@ func provideProjectCompletion(cmd *cobra.Command, args []string, toComplete stri
 			if ok {
 				project, err = loadProjectForCompletion(resolvedProjectFile)
 				if err == nil {
-					projectFile = resolvedProjectFile
 					contextName = contextNameFromWorkspaceAlias(arg, contextName)
 				}
 			}

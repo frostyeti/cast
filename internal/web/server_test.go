@@ -35,25 +35,26 @@ jobs:
 		t.Fatalf("expected 1 project, got %d", len(server.projects))
 	}
 
-	proj := server.projects["my-org-My-Project"]
-	if proj == nil {
+	project := server.projects["my-org-My-Project"]
+	if project == nil {
 		t.Fatalf("project 'my-org-My-Project' not found, map has: %v", getKeys(server.projects))
+		return
 	}
 
-	if proj.Schema.Id != "my-org-My-Project" {
-		t.Errorf("expected project ID to be 'my-org-My-Project', got %s", proj.Schema.Id)
+	if project.Schema.Id != "my-org-My-Project" {
+		t.Errorf("expected project ID to be 'my-org-My-Project', got %s", project.Schema.Id)
 	}
 
-	job1, ok := proj.Schema.Jobs.Get("job-1-0")
+	job1, ok := project.Schema.Jobs.Get("job-1-0")
 	if !ok {
-		t.Fatalf("job 'job-1-0' not found, job keys: %v", proj.Schema.Jobs.Keys())
+		t.Fatalf("job 'job-1-0' not found, job keys: %v", project.Schema.Jobs.Keys())
 	}
 
 	if job1.Id != "job-1-0" {
 		t.Errorf("expected job ID to be 'job-1-0', got %s", job1.Id)
 	}
 
-	job2, ok := proj.Schema.Jobs.Get("job-2")
+	job2, ok := project.Schema.Jobs.Get("job-2")
 	if !ok {
 		t.Fatalf("job 'job-2' not found")
 	}

@@ -26,12 +26,13 @@ func TestBuildSubcmdTree(t *testing.T) {
 	schema.Tasks.Set(&types.Task{Id: "dn:help", Name: "dn:help", Help: ptrString("dn help text"), Uses: ptrString("shell"), Run: ptrString("echo ignored")})
 	schema.Tasks.Set(&types.Task{Id: "dn:nuget:pack", Name: "dn:nuget:pack", Uses: ptrString("shell"), Run: ptrString("echo pack")})
 
-	root := buildSubcmdTree(schema)
-	if root == nil {
+	rootNode := buildSubcmdTree(schema)
+	if rootNode == nil {
 		t.Fatalf("expected subcmd tree to be created")
+		return
 	}
 
-	dnNode, ok := root.children["dn"]
+	dnNode, ok := rootNode.children["dn"]
 	if !ok {
 		t.Fatalf("expected dn node")
 	}

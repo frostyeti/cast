@@ -32,7 +32,7 @@ func GophAuth() (goph.Auth, error) {
 func SSHAuthMethod() (ssh.AuthMethod, error) {
 	sock := strings.TrimSpace(os.Getenv("SSH_AUTH_SOCK"))
 	if sock == "" {
-		return nil, fmt.Errorf(AvailabilityMessage())
+		return nil, fmt.Errorf("%s", AvailabilityMessage())
 	}
 	conn, err := net.Dial("unix", sock)
 	if err != nil {
